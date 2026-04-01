@@ -48,7 +48,8 @@
 
     /* Remove surrounding double quotes from a token. */
     function unquote(s) {
-        return (s.startsWith('"') && s.endsWith('"'))
+        return ((s.startsWith('"') && s.endsWith('"'))
+             || (s.startsWith('\'') && s.endsWith('\'')))
             ? s.slice(1, -1)
             : s;
     }
