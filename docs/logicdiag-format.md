@@ -14,7 +14,7 @@ Tokens are separated by spaces or tabs. Labels may be quoted with `"..."`.
 
 | Syntax                          | Description                                          |
 |---------------------------------|------------------------------------------------------|
-| `input <id> ["label"]`          | Toggleable input node                                |
+| `input <id> [<init>] ["label"]` | Toggleable input node; init is 0/1/true/false        |
 | `output <id> ["label"]`         | Output pin wired to an existing node                 |
 | `<gate-type> <id> <src>...`     | Gate node with one or more input node IDs            |
 | `stage <n>`                     | Layout hint: place following gates in column `n`     |
@@ -65,6 +65,17 @@ and out A B
 output out
 ```
 
+### AND gate with high initial input
+
+```
+input A 1
+input B
+and out A B
+output out
+```
+
+`A` starts high; `B` starts low.
+
 ### D-latch (SR-NAND)
 
 ```
@@ -79,8 +90,8 @@ output Q
 output Qb "~Q"
 ```
 
-Feedback loops are supported. The simulator runs fixed-point iteration and
-detects oscillating circuits automatically.
+Feedback loops are supported. The simulator runs repeated single-pass evaluations
+and detects oscillating circuits automatically.
 
 ### NOT feedback (oscillator)
 
@@ -126,6 +137,6 @@ Browsers with JavaScript disabled silently ignore
 The `LogicDiag` global object exposes two settings:
 
 ```js
-LogicDiag.tickRate = 1000; // ms between ticks for oscillating circuits
-LogicDiag.maxSteps = 100;  // fixed-point iterations before declaring oscillation
+LogicDiag.tickRate        = 1000; // ms between ticks for oscillating circuits
+LogicDiag.stabilityChecks = 20;   // max passes before declaring oscillation
 ```
