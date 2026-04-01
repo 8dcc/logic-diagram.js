@@ -439,11 +439,13 @@
 
                 let d;
                 if (sx < tx - 5) {
-                    /* Forward wire */
-                    const midX = (sx + tx) / 2;
-                    d = `M${sx},${sy} H${midX} V${ty} H${tx}`;
+                    /* Forward wire: horizontal, diagonal, short stub at dest */
+                    const dstStub = 12;
+                    const stub = Math.min(30, (tx - sx) * 0.3);
+                    d = `M${sx},${sy} H${tx - stub}` +
+                        ` L${tx - dstStub},${ty} H${tx}`;
                 } else {
-                    /* Backward (feedback) wire */
+                    /* Backward (feedback) wire: route above or below diagram */
                     const margin = 20 + feedbackIdx * 14;
                     const routeY = feedbackIdx % 2 === 0
                         ? margin
