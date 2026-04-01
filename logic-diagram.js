@@ -65,6 +65,7 @@
         const gates = [];
         let currentStage = 1;
 
+        const VALID_STATES = new Set(['0', '1', 'true', 'false']);
         const lines = text.split('\n');
         for (const raw of lines) {
             const line = raw.trim();
@@ -86,8 +87,30 @@
 
             if (kw === 'input') {
                 const id = tokens[1];
-                const label = tokens[2] ? unquote(tokens[2]) : id;
-                const node = { id, type: 'input', ins: [], label, stage: 0 };
+                let init = 0;
+                let label = id;
+
+                if (tokens.length === 2) {
+                    /* input <id> */
+                } else if (tokens.length === 3 || tokens.length === 4) {
+                    /* input <id> <init> [<label>] */
+                    if (!VALID_STATES.has(tokens[2])) {
+                        throw new Error(
+                            'Invalid input state: ' + tokens[2]
+                        );
+                    }
+                    init = (tokens[2] === '1' ||
+                            tokens[2] === 'true') ? 1 : 0;
+                    if (tokens.length === 4)
+                        label = unquote(tokens[3]);
+                } else {
+                    throw new Error(
+                        'Invalid input declaration: ' + line
+                    );
+                }
+
+                const node = { id, type: 'input', ins: [], label,
+                               init, stage: 0 };
                 nodes.set(id, node);
                 inputs.push(node);
                 continue;

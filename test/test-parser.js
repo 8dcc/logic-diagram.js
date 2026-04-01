@@ -18,7 +18,7 @@ test('parse: input label defaults to id', () => {
 });
 
 test('parse: input with explicit label', () => {
-    const g = LogicDiag._parse('input D "Data"\n');
+    const g = LogicDiag._parse('input D 0 "Data"\n');
     assert.strictEqual(g.inputs[0].label, 'Data');
 });
 
@@ -97,6 +97,59 @@ test('parse: throws on invalid stage number', () => {
     assert.throws(
         () => LogicDiag._parse('input D\nstage foo\n'),
         /invalid stage number/i
+    );
+});
+
+test('parse: input with init state 1', () => {
+    const g = LogicDiag._parse('input D 1\n');
+    assert.strictEqual(g.inputs[0].init, 1);
+    assert.strictEqual(g.inputs[0].label, 'D');
+});
+
+test('parse: input with init state 0', () => {
+    const g = LogicDiag._parse('input D 0\n');
+    assert.strictEqual(g.inputs[0].init, 0);
+});
+
+test('parse: input with init true', () => {
+    const g = LogicDiag._parse('input D true\n');
+    assert.strictEqual(g.inputs[0].init, 1);
+});
+
+test('parse: input with init false', () => {
+    const g = LogicDiag._parse('input D false\n');
+    assert.strictEqual(g.inputs[0].init, 0);
+});
+
+test('parse: input with init and label', () => {
+    const g = LogicDiag._parse('input D 1 "Data"\n');
+    assert.strictEqual(g.inputs[0].init, 1);
+    assert.strictEqual(g.inputs[0].label, 'Data');
+});
+
+test('parse: input default init is 0', () => {
+    const g = LogicDiag._parse('input D\n');
+    assert.strictEqual(g.inputs[0].init, 0);
+});
+
+test('parse: input with label only throws', () => {
+    assert.throws(
+        () => LogicDiag._parse('input D "Data"\n'),
+        /invalid input state/i
+    );
+});
+
+test('parse: input with invalid state token throws', () => {
+    assert.throws(
+        () => LogicDiag._parse('input D maybe\n'),
+        /invalid input state/i
+    );
+});
+
+test('parse: input with too many tokens throws', () => {
+    assert.throws(
+        () => LogicDiag._parse('input D 1 "Label" extra\n'),
+        /invalid input/i
     );
 });
 
