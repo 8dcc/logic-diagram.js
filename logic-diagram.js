@@ -7,8 +7,8 @@
      * ================================================================ */
 
     const LogicDiag = {
-        tickRate: 1000, /* ms between ticks for oscillating circuits */
-        maxSteps: 100,  /* max fixed-point iterations before declaring oscillation */
+        tickRate:        1000, /* ms between ticks for oscillating circuits */
+        stabilityChecks: 20,   /* max passes before declaring oscillation */
     };
 
     /* ================================================================
@@ -265,34 +265,98 @@
     }
 
     /*
-     * Run fixed-point simulation on 'graph' starting from 'initState'.
-     * Returns a SimState Map<id, 0|1|null> after up to LogicDiag.maxSteps
-     * iterations. Converges in one pass for DAGs; stops at maxSteps for
-     * oscillating circuits.
+     * Sort 'graph.gates' in topological order (inputs-first). Uses Kahn's
+     * algorithm. Gates that are part of a cycle cannot be fully ordered and
+     * are appended at the end in their original declaration order.
      */
-    function simulate(graph, initState) {
-        const state = new Map(initState);
-        /* Seed gate nodes not present in initState to null. */
-        for (const gate of graph.gates) {
-            if (!state.has(gate.id)) state.set(gate.id, null);
-        }
+    function topoSortGates(graph) {
+        const gateIds = new Set(graph.gates.map(g => g.id));
+        const indegree = new Map();
+        const children = new Map();
 
-        for (let step = 0; step < LogicDiag.maxSteps; step++) {
-            let changed = false;
-            for (const gate of graph.gates) {
-                const inputs = gate.ins.map(id => state.get(id) ?? null);
-                const val = evalGate(gate.type, inputs);
-                if (state.get(gate.id) !== val) {
-                    state.set(gate.id, val);
-                    changed = true;
+        for (const gate of graph.gates) {
+            indegree.set(gate.id, 0);
+            children.set(gate.id, []);
+        }
+        for (const gate of graph.gates) {
+            for (const inp of gate.ins) {
+                if (gateIds.has(inp)) {
+                    indegree.set(gate.id, indegree.get(gate.id) + 1);
+                    children.get(inp).push(gate.id);
                 }
             }
-            if (!changed) return state;
         }
-        return state;
+
+        const queue = [];
+        for (const gate of graph.gates) {
+            if (indegree.get(gate.id) === 0) queue.push(gate.id);
+        }
+
+        const sorted = [];
+        const visited = new Set();
+        while (queue.length > 0) {
+            const id = queue.shift();
+            visited.add(id);
+            sorted.push(id);
+            for (const next of children.get(id)) {
+                const deg = indegree.get(next) - 1;
+                indegree.set(next, deg);
+                if (deg === 0) queue.push(next);
+            }
+        }
+
+        /* Append cyclic gates in declaration order */
+        for (const gate of graph.gates) {
+            if (!visited.has(gate.id)) sorted.push(gate.id);
+        }
+
+        return sorted.map(id => graph.nodes.get(id));
+    }
+
+    /*
+     * Run a single propagation pass over 'graph' starting from 'state'.
+     * Gates are processed in topological order; cyclic nodes use their
+     * current value from 'state' as input. Returns a new
+     * Map<id, 0|1|null>.
+     */
+    function simulate(graph, state) {
+        const next = new Map(state);
+        for (const gate of graph.gates) {
+            if (!next.has(gate.id)) next.set(gate.id, null);
+        }
+        for (const gate of topoSortGates(graph)) {
+            const inputs = gate.ins.map(id => next.get(id) ?? null);
+            next.set(gate.id, evalGate(gate.type, inputs));
+        }
+        return next;
     }
 
     LogicDiag._simulate = simulate;
+
+    /*
+     * Run simulate() repeatedly until two consecutive passes produce
+     * identical state (stable) or 'LogicDiag.stabilityChecks' passes are
+     * exhausted (oscillating). Compares all node states, not just outputs.
+     * Returns { state: Map<id, 0|1|null>, stable: bool }.
+     */
+    function checkStability(graph, state) {
+        let prev = simulate(graph, state);
+        for (let i = 1; i < LogicDiag.stabilityChecks; i++) {
+            const next = simulate(graph, prev);
+            let stable = true;
+            for (const [id, val] of next) {
+                if (prev.get(id) !== val) {
+                    stable = false;
+                    break;
+                }
+            }
+            if (stable) return { state: next, stable: true };
+            prev = next;
+        }
+        return { state: prev, stable: false };
+    }
+
+    LogicDiag._checkStability = checkStability;
 
     /* ================================================================
      * SVG Renderer

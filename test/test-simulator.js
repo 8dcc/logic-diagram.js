@@ -119,9 +119,7 @@ test('simulate: gate nodes seeded to null when missing from initState', () => {
     assert.strictEqual(result.get('n1'), 0);
 });
 
-test('simulate: oscillating circuit does not stabilize within maxSteps', () => {
-    /* A NOT gate feeding back into itself oscillates indefinitely.
-     * simulate() should hit maxSteps and return without converging. */
+test('checkStability: oscillating circuit is detected', () => {
     const feedbackGraph = {
         nodes: new Map([['osc', { id: 'osc', type: 'not', ins: ['osc'],
                                   label: 'osc', stage: 1 }]]),
@@ -131,20 +129,40 @@ test('simulate: oscillating circuit does not stabilize within maxSteps', () => {
                   label: 'osc', stage: 1 }],
     };
     const state = new Map([['osc', 0]]);
+    const saved = LogicDiag.stabilityChecks;
+    LogicDiag.stabilityChecks = 6;
+    const result = LogicDiag._checkStability(feedbackGraph, state);
+    LogicDiag.stabilityChecks = saved;
+    assert.strictEqual(result.stable, false);
+});
 
-    /* Reduce maxSteps to keep the test fast */
-    const savedMax = LogicDiag.maxSteps;
-    LogicDiag.maxSteps = 5;
-    const result = LogicDiag._simulate(feedbackGraph, state);
-    LogicDiag.maxSteps = savedMax;
+test('checkStability: stable AND gate', () => {
+    const g = LogicDiag._parse('input A\ninput B\nand out A B\n');
+    const state = new Map([['A', 1], ['B', 1], ['out', null]]);
+    const result = LogicDiag._checkStability(g, state);
+    assert.strictEqual(result.stable, true);
+    assert.strictEqual(result.state.get('out'), 1);
+});
 
-    /* The circuit flips every iteration so it cannot stabilize */
-    /* After 5 steps from osc=0: 0->1->0->1->0->1, final state is 1 */
-    assert.strictEqual(result.get('osc'), 1);
-    /* Verify it actually ran maxSteps (osc changed, so it did not
-     * short-circuit early as "stable") */
-    assert.notStrictEqual(result.get('osc'), 0,
-        'oscillating circuit should have changed state');
+test('checkStability: SR-NAND latch stabilizes from null', () => {
+    const g = LogicDiag._parse(
+        'input S\ninput R\n' +
+        'nand Q  S  Qb\n' +
+        'nand Qb R  Q\n'
+    );
+    const state = new Map([['S', 0], ['R', 1], ['Q', null], ['Qb', null]]);
+    const result = LogicDiag._checkStability(g, state);
+    assert.strictEqual(result.stable, true);
+    assert.strictEqual(result.state.get('Q'), 1);
+    assert.strictEqual(result.state.get('Qb'), 0);
+});
+
+test('checkStability: returns state map', () => {
+    const g = LogicDiag._parse('input D\nnot n1 D\n');
+    const state = new Map([['D', 1], ['n1', null]]);
+    const result = LogicDiag._checkStability(g, state);
+    assert.ok(result.state instanceof Map);
+    assert.strictEqual(result.state.get('n1'), 0);
 });
 
 done();
