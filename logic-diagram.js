@@ -340,7 +340,9 @@
      * Returns { state: Map<id, 0|1|null>, stable: bool }.
      */
     function checkStability(graph, state) {
-        let prev = simulate(graph, state);
+        const first_simulation = simulate(graph, state);
+
+        let prev = first_simulation;
         for (let i = 1; i < LogicDiag.stabilityChecks; i++) {
             const next = simulate(graph, prev);
             let stable = true;
@@ -353,7 +355,8 @@
             if (stable) return { state: next, stable: true };
             prev = next;
         }
-        return { state: prev, stable: false };
+
+        return { state: first_simulation, stable: false };
     }
 
     LogicDiag._checkStability = checkStability;
