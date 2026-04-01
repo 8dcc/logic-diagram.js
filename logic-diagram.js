@@ -691,8 +691,9 @@
             entry.timerId = null;
         }
 
-        const newState = simulate(entry.graph, entry.state);
-        entry.state    = newState;
+        const { state: newState, stable } =
+            checkStability(entry.graph, entry.state);
+        entry.state = newState;
 
         const inner = [
             renderWires(entry.graph, entry.lo, newState),
@@ -705,21 +706,10 @@
         ].join('\n');
         entry.svgEl.innerHTML = inner;
 
-        /* Check for oscillation: compare state to previous */
-        if (entry.prevState) {
-            let changed = false;
-            for (const [id, val] of newState) {
-                if (entry.prevState.get(id) !== val) {
-                    changed = true;
-                    break;
-                }
-            }
-            if (changed) {
-                entry.timerId = setTimeout(() => redraw(entry),
-                                           LogicDiag.tickRate);
-            }
+        if (!stable) {
+            entry.timerId = setTimeout(() => redraw(entry),
+                                       LogicDiag.tickRate);
         }
-        entry.prevState = new Map(newState);
     }
 
     /*
@@ -746,10 +736,10 @@
         const lo    = layout(graph);
 
         const state = new Map();
-        for (const inp of graph.inputs)  state.set(inp.id, 0);
+        for (const inp of graph.inputs)  state.set(inp.id, inp.init);
         for (const gate of graph.gates)  state.set(gate.id, null);
 
-        const initState = simulate(graph, state);
+        const { state: initState, stable } = checkStability(graph, state);
 
         const svgStr = render(graph, lo, initState);
 
@@ -761,15 +751,15 @@
             graph,
             lo,
             svgEl,
-            state:     initState,
-            prevState: null,
-            timerId:   null,
+            state:   initState,
+            timerId: null,
         };
         _diagrams.set(svgEl, entry);
 
-        /* Start oscillation check on next tick */
-        entry.prevState = new Map(initState);
-        entry.timerId   = setTimeout(() => redraw(entry), LogicDiag.tickRate);
+        if (!stable) {
+            entry.timerId = setTimeout(() => redraw(entry),
+                                       LogicDiag.tickRate);
+        }
 
         return svgEl;
     }
