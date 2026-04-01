@@ -1,0 +1,59 @@
+'use strict';
+
+const { test, assert, done } = require('./helpers');
+const LogicDiag = require('../logic-diagram');
+
+function layoutOf(dsl) {
+    const g = LogicDiag._parse(dsl);
+    return LogicDiag._layout(g);
+}
+
+test('layout: single input is placed at stage 0 x', () => {
+    const { pos } = layoutOf('input D\nnot n1 D\noutput n1\n');
+    const PADDING = 50, GATE_W = 60;
+    assert.strictEqual(pos.get('D').x, PADDING + GATE_W / 2);
+});
+
+test('layout: stage-1 gate x is one column right of inputs', () => {
+    const { pos } = layoutOf('input D\nnot n1 D\noutput n1\n');
+    const PADDING = 50, GATE_W = 60, COL_SPACING = 140;
+    assert.strictEqual(pos.get('n1').x, PADDING + GATE_W / 2 + COL_SPACING);
+});
+
+test('layout: two gates in same stage share column x, have different y', () => {
+    const { pos } = layoutOf(
+        'input A\ninput B\nstage 2\nand g1 A B\nor g2 A B\noutput g1\noutput g2\n'
+    );
+    assert.strictEqual(pos.get('g1').x, pos.get('g2').x);
+    assert.notStrictEqual(pos.get('g1').y, pos.get('g2').y);
+});
+
+test('layout: two inputs are vertically separated by ROW_SPACING', () => {
+    const { pos } = layoutOf('input A\ninput B\nand out A B\noutput out\n');
+    const ROW_SPACING = 70;
+    assert.strictEqual(Math.abs(pos.get('A').y - pos.get('B').y), ROW_SPACING);
+});
+
+test('layout: returns canvas width and height as positive numbers', () => {
+    const { width, height } = layoutOf('input D\nnot n1 D\noutput n1\n');
+    assert.ok(typeof width === 'number' && width > 0);
+    assert.ok(typeof height === 'number' && height > 0);
+});
+
+test('layout: gate positions are not overwritten by output annotations', () => {
+    /* n1 is a gate at stage 1; it should be positioned at the gate column,
+     * not at some output column. */
+    const { pos } = layoutOf('input D\nstage 1\nnot n1 D\noutput n1\n');
+    const PADDING = 50, GATE_W = 60, COL_SPACING = 140;
+    const expectedX = PADDING + GATE_W / 2 + 1 * COL_SPACING;
+    assert.strictEqual(pos.get('n1').x, expectedX,
+        'gate n1 should be in stage 1 column, not overwritten by output');
+});
+
+test('layout: canvas width is wide enough for output label column', () => {
+    const { width } = layoutOf('input D\nstage 1\nnot n1 D\noutput n1\n');
+    /* outputStage = 2, canvasWidth = (2+1)*140 + 2*50 + 60 = 580 */
+    assert.strictEqual(width, 580);
+});
+
+done();

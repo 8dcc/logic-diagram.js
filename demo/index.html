@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Logic Diagram Demo</title>
+  <script src="../logic-diagram.js" defer></script>
+  <style>
+    body { font-family: sans-serif; max-width: 900px; margin: 2rem auto; }
+    h2   { margin-top: 2rem; }
+  </style>
+</head>
+<body>
+  <h1>Logic Diagram Demo</h1>
+
+  <h2>AND gate</h2>
+  <script type="text/logicdiag">
+    input A
+    input B
+    and out A B
+    output out "A AND B"
+  </script>
+
+  <h2>D-latch</h2>
+  <script type="text/logicdiag">
+    input D
+    input E
+
+    stage 1
+    not  n1  D
+
+    stage 2
+    and  R   n1 E
+    and  S   D  E
+
+    stage 3
+    nand Q   R  Qb
+    nand Qb  S  Q
+
+    output Q
+    output Qb "~Q"
+  </script>
+
+  <h2>Oscillator (NOT feedback loop)</h2>
+  <p>This circuit oscillates — the wire color toggles at 1 tick/second.</p>
+  <script type="text/logicdiag">
+    input input
+
+    stage 1
+    or loopback input output
+
+    stage 2
+    not output loopback
+    output output
+  </script>
+</body>
+</html>
