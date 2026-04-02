@@ -87,6 +87,8 @@ function parse(text) {
     const outputs    = [];
     const gates      = [];
     let currentStage = 1;
+    const rowByStage = new Map();   /* current row counter per stage */
+    let pendingRow   = null;        /* set by 'row' hint, used once */
 
     const VALID_STATES = new Set([ '0', '1', 'true', 'false' ]);
     const lines        = text.split('\n');
@@ -103,6 +105,16 @@ function parse(text) {
             if (isNaN(n))
                 throw new Error('Invalid stage number: ' + tokens[1]);
             currentStage = n;
+            rowByStage.delete(n);
+            pendingRow   = null;
+            continue;
+        }
+
+        if (kw === 'row') {
+            const n = parseInt(tokens[1], 10);
+            if (isNaN(n))
+                throw new Error('Invalid row number: ' + tokens[1]);
+            pendingRow = n;
             continue;
         }
 
@@ -125,8 +137,15 @@ function parse(text) {
                 throw new Error('Invalid input declaration: ' + line);
             }
 
-            const
-              node = { id, type : 'input', ins : [], label, init, stage : 0 };
+            const inputRow = pendingRow !== null
+                ? pendingRow
+                : (rowByStage.get(0) || 0);
+            pendingRow = null;
+            rowByStage.set(0, inputRow + 1);
+            const node = {
+                id, type : 'input', ins : [], label, init,
+                stage : 0, row : inputRow
+            };
             nodes.set(id, node);
             inputs.push(node);
             continue;
@@ -151,8 +170,15 @@ function parse(text) {
         if (GATE_TYPES.has(kw)) {
             const id  = tokens[1];
             const ins = tokens.slice(2);
-            const
-              node = { id, type : kw, ins, label : id, stage : currentStage };
+            const gateRow = pendingRow !== null
+                ? pendingRow
+                : (rowByStage.get(currentStage) || 0);
+            pendingRow = null;
+            rowByStage.set(currentStage, gateRow + 1);
+            const node = {
+                id, type : kw, ins, label : id,
+                stage : currentStage, row : gateRow
+            };
             nodes.set(id, node);
             gates.push(node);
             continue;
@@ -180,6 +206,10 @@ const GATE_H      = 40;
 const COL_SPACING = 140;
 const ROW_SPACING = 70;
 const PADDING     = 50;
+/* Space from the last gate centre to the SVG right edge: output pin
+ * extension (20) + wire to dot (30) + label text estimate (80) +
+ * right margin (25). */
+const OUT_TAIL    = 155;
 
 /*
  * Assign center {x, y} coordinates to every node in 'graph'.
@@ -218,7 +248,8 @@ function layout(graph) {
 
     const canvasHeight =
       Math.max(maxNodesInCol * ROW_SPACING + 2 * PADDING, GATE_H + 2 * PADDING);
-    const canvasWidth = (outputStage + 1) * COL_SPACING + 2 * PADDING + GATE_W;
+    const cx_max      = PADDING + GATE_W / 2 + maxGateStage * COL_SPACING;
+    const canvasWidth = cx_max + OUT_TAIL;
 
     const pos = new Map();
 
@@ -703,7 +734,7 @@ function render(graph, lo, simState) {
                     ` class="logicdiag"` +
                     ` viewBox="0 0 ${width} ${height}"` +
                     ` width="${width}" height="${height}"` +
-                    ` style="display:block;max-width:100%;">` ];
+                    ` style="display:block;max-width:100%;margin:auto;">` ];
 
     parts.push(renderWires(graph, lo, simState));
 
@@ -829,7 +860,10 @@ if (typeof document !== 'undefined') {
         scripts.forEach(function(script) {
             try {
                 const svgEl = renderDiagram(script.textContent);
-                script.parentNode.insertBefore(svgEl, script.nextSibling);
+                const wrap = document.createElement('div');
+                wrap.style.textAlign = 'center';
+                wrap.appendChild(svgEl);
+                script.parentNode.insertBefore(wrap, script.nextSibling);
             } catch (e) {
                 const err = document.createElement('pre');
                 err.style.cssText =

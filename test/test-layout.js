@@ -50,10 +50,11 @@ test('layout: gate positions are not overwritten by output annotations', () => {
         'gate n1 should be in stage 1 column, not overwritten by output');
 });
 
-test('layout: canvas width is wide enough for output label column', () => {
+test('layout: canvas width covers last gate plus output label tail', () => {
     const { width } = layoutOf('input D\nstage 1\nnot n1 D\noutput n1\n');
-    /* outputStage = 2, canvasWidth = (2+1)*140 + 2*50 + 60 = 580 */
-    assert.strictEqual(width, 580);
+    /* cx_max = PADDING(50) + GATE_W/2(30) + 1*COL_SPACING(140) = 220
+     * canvasWidth = cx_max(220) + OUT_TAIL(155) = 375 */
+    assert.strictEqual(width, 375);
 });
 
 done();

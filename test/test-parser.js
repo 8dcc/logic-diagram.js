@@ -153,4 +153,47 @@ test('parse: input with too many tokens throws', () => {
     );
 });
 
+test('parse: row hint attaches row to following gate', () => {
+    const g = LogicDiag._parse(
+        'input A\nstage 1\nrow 2\nnot n1 A\noutput n1\n'
+    );
+    assert.strictEqual(g.gates[0].row, 2);
+});
+
+test('parse: row hint attaches row to following input', () => {
+    const g = LogicDiag._parse('row 3\ninput A\nnot n1 A\noutput n1\n');
+    assert.strictEqual(g.inputs[0].row, 3);
+});
+
+test('parse: stage resets row counter (first gate after stage gets row 0)', () => {
+    const g = LogicDiag._parse(
+        'input A\nrow 5\nstage 1\nnot n1 A\noutput n1\n'
+    );
+    assert.strictEqual(g.gates[0].row, 0);
+});
+
+test('parse: auto-increment after row hint', () => {
+    const g = LogicDiag._parse(
+        'input A\nstage 1\nrow 2\nnot n1 A\nbuf n2 A\noutput n1\noutput n2\n'
+    );
+    assert.strictEqual(g.gates[0].row, 2);
+    assert.strictEqual(g.gates[1].row, 3);
+});
+
+test('parse: without row hint nodes start at row 0 and increment', () => {
+    const g = LogicDiag._parse(
+        'input A\ninput B\nand out A B\noutput out\n'
+    );
+    assert.strictEqual(g.inputs[0].row, 0);
+    assert.strictEqual(g.inputs[1].row, 1);
+    assert.strictEqual(g.gates[0].row, 0);
+});
+
+test('parse: invalid row number throws', () => {
+    assert.throws(
+        () => LogicDiag._parse('input A\nrow foo\nnot n1 A\noutput n1\n'),
+        /Invalid row number/
+    );
+});
+
 done();
