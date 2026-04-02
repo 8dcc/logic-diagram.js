@@ -25,6 +25,21 @@
     output out "A AND B"
   </script>
 
+  <h2>SR latch</h2>
+  <p class="tip">Pulse <code>S</code> high to set, pulse <code>R</code> high to reset, then return both to 0 to hold the state.</p>
+
+  <script type="text/logicdiag">
+    input R
+    input S
+
+    stage 1
+    nor  nor_A  R nor_B
+    nor  nor_B  nor_A S
+
+    output nor_A "Q"
+    output nor_B "~Q"
+  </script>
+
   <h2>D-latch</h2>
   <p class="tip">Set <code>E=1</code> to make the latch transparent. Return <code>E=0</code> to hold the stored value.</p>
 
