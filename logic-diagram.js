@@ -587,15 +587,14 @@ function inPins(type, cx, cy) {
 
 /*
  * Render all wires as orthogonal SVG paths.
- * Forward wires (source stage < target stage): H to midpoint, V to
- * target y, H to pin.
- * Backward wires (feedback loops): routed above or below the diagram,
- * alternating per feedback wire index.
+ * Forward wires (source stage < target stage): H to midpoint, diagonal
+ * to target y, short H to pin.
+ * Backward wires (feedback loops): short H right, short V up/down,
+ * diagonal to near destination, short V to target y, H to pin.
  */
 function renderWires(graph, lo, simState) {
-    const { pos, height } = lo;
-    const parts           = [];
-    let feedbackIdx       = 0;
+    const { pos } = lo;
+    const parts   = [];
 
     for (const node of [...graph.inputs, ...graph.gates]) {
         const tPos = pos.get(node.id);
@@ -627,12 +626,18 @@ function renderWires(graph, lo, simState) {
                 d             = `M${sx},${sy} H${tx - stub}` +
                     ` L${tx - dstStub},${ty} H${tx}`;
             } else {
-                /* Backward (feedback) wire: route above or below diagram */
-                const margin = 20 + feedbackIdx * 14;
-                const routeY = feedbackIdx % 2 === 0 ? margin : height - margin;
-                feedbackIdx++;
-                d = `M${sx},${sy} H${sx + 16} V${routeY}` +
-                    ` H${tx - 16} V${ty} H${tx}`;
+                /* Backward (feedback) wire: right stub, short vertical,
+                 * diagonal to near destination, short vertical, left to
+                 * pin. Mirrors the forward wire diagonal style. */
+                const exitR   = 20;
+                const topStub = 15;
+                const botStub = 15;
+                const dstStub = 12;
+                const dir     = ty <= sy ? -1 : 1;
+                const preY    = sy + dir * topStub;
+                const postY   = ty - dir * botStub;
+                d = `M${sx},${sy} H${sx + exitR} V${preY}` +
+                    ` L${tx - dstStub},${postY} V${ty} H${tx}`;
             }
 
             parts.push(`<path d="${d}" fill="none" stroke="${color}"` +
