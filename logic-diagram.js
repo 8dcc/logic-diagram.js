@@ -330,6 +330,9 @@ function evalGate(type, inputs) {
                 return null;
             return inputs.reduce((a, b) => a ^ b, 0) === 0 ? 1 : 0;
 
+        case 'wire':
+            return inputs[0] ?? null;
+
         default:
             return null;
     }
@@ -562,6 +565,8 @@ function gateShape(type, cx, cy) {
  * For inverted gates the bubble right edge is cx+G_R.
  */
 function outPin(type, cx, cy) {
+    if (type === 'wire')
+        return { x : cx, y : cy };
     return { x : cx + G_R, y : cy };
 }
 
@@ -570,6 +575,8 @@ function outPin(type, cx, cy) {
  * For XOR/XNOR the extra left arc shifts the effective pin x inward.
  */
 function inPins(type, cx, cy) {
+    if (type === 'wire')
+        return [ { x : cx, y : cy } ];
     if (type === 'not' || type === 'buf')
         return [ { x : cx - G_L, y : cy } ];
     const isXorFamily = type === 'xor' || type === 'xnor';

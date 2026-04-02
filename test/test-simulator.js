@@ -165,4 +165,20 @@ test('checkStability: returns state map', () => {
     assert.strictEqual(result.state.get('n1'), 0);
 });
 
+test('simulate: wire passes through source value', () => {
+    const s = sim(
+        'input A\nnot n1 A\nwire w1 n1 0.5 0\noutput n1\n',
+        { A: 0 }
+    );
+    assert.strictEqual(s.get('w1'), 1);
+});
+
+test('simulate: wire passes null when source is null', () => {
+    const s = sim(
+        'input A\nnot n1 A\nwire w1 n1 0.5 0\noutput n1\n',
+        { A: null }
+    );
+    assert.strictEqual(s.get('w1'), null);
+});
+
 done();
