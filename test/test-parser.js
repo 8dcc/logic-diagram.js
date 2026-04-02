@@ -203,4 +203,53 @@ test('parse: decimal row hint is accepted', () => {
     assert.strictEqual(g.gates[0].row, 1.5);
 });
 
+test('parse: wire node is added to gates and nodes', () => {
+    const g = LogicDiag._parse(
+        'input A\nnot n1 A\nwire w1 n1 0.5 1.5\noutput n1\n'
+    );
+    assert.ok(g.nodes.has('w1'));
+    assert.ok(g.gates.some(g => g.id === 'w1'));
+});
+
+test('parse: wire node has correct type, ins, stage, row', () => {
+    const g = LogicDiag._parse(
+        'input A\nnot n1 A\nwire w1 n1 0.5 1.5\noutput n1\n'
+    );
+    const w = g.nodes.get('w1');
+    assert.strictEqual(w.type, 'wire');
+    assert.deepStrictEqual(w.ins, ['n1']);
+    assert.strictEqual(w.stage, 0.5);
+    assert.strictEqual(w.row, 1.5);
+});
+
+test('parse: wire is NOT in inputs', () => {
+    const g = LogicDiag._parse(
+        'input A\nnot n1 A\nwire w1 n1 0.5 1.5\noutput n1\n'
+    );
+    assert.ok(!g.inputs.some(n => n.id === 'w1'));
+});
+
+test('parse: wire does not affect stage/row counters', () => {
+    const g = LogicDiag._parse(
+        'input A\nstage 1\nwire w1 A 0.5 0.5\nnot n1 A\noutput n1\n'
+    );
+    /* n1 should be at stage 1, row 0 (counter not affected by wire) */
+    assert.strictEqual(g.gates.find(g => g.id === 'n1').stage, 1);
+    assert.strictEqual(g.gates.find(g => g.id === 'n1').row, 0);
+});
+
+test('parse: wire with invalid stage throws', () => {
+    assert.throws(
+        () => LogicDiag._parse('input A\nwire w1 A foo 0\noutput A\n'),
+        /Invalid wire stage/
+    );
+});
+
+test('parse: wire with invalid row throws', () => {
+    assert.throws(
+        () => LogicDiag._parse('input A\nwire w1 A 0 bar\noutput A\n'),
+        /Invalid wire row/
+    );
+});
+
 done();

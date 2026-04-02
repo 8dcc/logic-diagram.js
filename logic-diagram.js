@@ -167,6 +167,25 @@ function parse(text) {
             continue;
         }
 
+        if (kw === 'wire') {
+            if (tokens.length !== 5)
+                throw new Error('Invalid wire declaration: ' + line);
+            const id    = tokens[1];
+            const src   = tokens[2];
+            const stage = parseFloat(tokens[3]);
+            const row   = parseFloat(tokens[4]);
+            if (isNaN(stage))
+                throw new Error('Invalid wire stage: ' + tokens[3]);
+            if (isNaN(row))
+                throw new Error('Invalid wire row: ' + tokens[4]);
+            const node = {
+                id, type : 'wire', ins : [ src ], label : id, stage, row
+            };
+            nodes.set(id, node);
+            gates.push(node);
+            continue;
+        }
+
         if (GATE_TYPES.has(kw)) {
             const id  = tokens[1];
             const ins = tokens.slice(2);
