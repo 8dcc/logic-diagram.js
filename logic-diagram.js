@@ -226,10 +226,9 @@ const GATE_H      = 40;
 const COL_SPACING = 140;
 const ROW_SPACING = 70;
 const PADDING     = 50;
-/* Space from the last gate centre to the SVG right edge: output pin
- * extension (20) + wire to dot (30) + label text estimate (80) +
- * right margin (25). */
-const OUT_TAIL    = 155;
+const OUT_DOT_OFFSET = 0.35 * COL_SPACING; /* gate centre to output dot */
+/* Space from the last gate centre to the SVG right edge. */
+const OUT_TAIL    = OUT_DOT_OFFSET + 8 + 80 + 25;
 
 /*
  * Assign center {x, y} coordinates to every node in 'graph'.
@@ -701,8 +700,8 @@ function renderWires(graph, lo, simState) {
 
         const color = sigColor(simState.get(srcId) ?? null);
         const sOut  = outPin(srcNode.type, srcPos.x, srcPos.y);
-        /* The output dot is rendered at sOut.x + 30 in renderOutputs */
-        parts.push(`<path d="M${sOut.x},${sOut.y} H${sOut.x + 30}"` +
+        /* The output dot is rendered at srcPos.x + 0.5*COL_SPACING */
+        parts.push(`<path d="M${sOut.x},${sOut.y} H${srcPos.x + OUT_DOT_OFFSET}"` +
                    ` fill="none" stroke="${color}" stroke-width="2"/>`);
     }
 
@@ -770,9 +769,10 @@ function renderOutputs(graph, lo, simState) {
 
         const color = sigColor(simState.get(srcId) ?? null);
         const op    = outPin(srcNode.type, srcPos.x, srcPos.y);
-        parts.push(`<circle cx="${op.x + 30}" cy="${op.y}" r="4"` +
+        const dotX = srcPos.x + OUT_DOT_OFFSET;
+        parts.push(`<circle cx="${dotX}" cy="${op.y}" r="4"` +
                    ` fill="${color}"/>`);
-        parts.push(`<text x="${op.x + 38}" y="${op.y + 5}"` +
+        parts.push(`<text x="${dotX + 8}" y="${op.y + 5}"` +
                    ` font-family="monospace" font-size="14" fill="#222"` +
                    `>${escapeXml(out.label)}</text>`);
     }
