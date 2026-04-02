@@ -698,7 +698,9 @@ function renderOutputs(graph, lo, simState) {
  */
 function render(graph, lo, simState) {
     const { pos, width, height } = lo;
-    const parts                  = [ `<svg xmlns="http://www.w3.org/2000/svg"` +
+
+    const parts = [ `<svg xmlns="http://www.w3.org/2000/svg"` +
+                    ` class="logicdiag"` +
                     ` viewBox="0 0 ${width} ${height}"` +
                     ` width="${width}" height="${height}"` +
                     ` style="display:block;max-width:100%;">` ];
