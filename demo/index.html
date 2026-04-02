@@ -48,18 +48,19 @@
     input E
 
     stage 1
-    not  n1  D
+    row 0.5
+    not not_D D
 
     stage 2
-    and  R   n1 E
-    and  S   D  E
+    nand nand_A D E
+    nand nand_B not_D E
 
     stage 3
-    nand Q   R  Qb
-    nand Qb  S  Q
+    nand nand_C nand_A nand_D
+    nand nand_D nand_C nand_B
 
-    output Q
-    output Qb "~Q"
+    output nand_C "Q"
+    output nand_D "~Q"
   </script>
 
   <h2>Oscillator (NOT feedback loop)</h2>
