@@ -669,18 +669,18 @@ function renderWires(graph, lo, simState) {
                 const diagX1  = stageCx - 0.35 * COL_SPACING;
                 d = `M${sx},${sy} H${diagX0} L${diagX1},${ty} H${tx}`;
             } else {
-                /* Backward (feedback) wire: right stub, short vertical,
-                 * diagonal to near destination, short vertical, left to
-                 * pin. Mirrors the forward wire diagonal style. */
-                const exitR   = 20;
+                /* Backward (feedback) wire: horizontal to src+0.25 stage,
+                 * short vertical, diagonal to dst-0.25 stage, short
+                 * vertical, horizontal to pin. */
+                const exitX   = sPos.x + 0.25 * COL_SPACING;
+                const diagEndX = tPos.x - 0.25 * COL_SPACING;
                 const topStub = 15;
                 const botStub = 15;
-                const dstStub = 12;
                 const dir     = ty <= sy ? -1 : 1;
                 const preY    = sy + dir * topStub;
                 const postY   = ty - dir * botStub;
-                d = `M${sx},${sy} H${sx + exitR} V${preY}` +
-                    ` L${tx - dstStub},${postY} V${ty} H${tx}`;
+                d = `M${sx},${sy} H${exitX} V${preY}` +
+                    ` L${diagEndX},${postY} V${ty} H${tx}`;
             }
 
             parts.push(`<path d="${d}" fill="none" stroke="${color}"` +
