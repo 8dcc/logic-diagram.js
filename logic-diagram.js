@@ -139,7 +139,7 @@ function parse(text) {
 
             const inputRow = pendingRow !== null
                 ? pendingRow
-                : (rowByStage.get(0) || 0);
+                : (rowByStage.get(0) ?? 0);
             pendingRow = null;
             rowByStage.set(0, inputRow + 1);
             const node = {
@@ -172,7 +172,7 @@ function parse(text) {
             const ins = tokens.slice(2);
             const gateRow = pendingRow !== null
                 ? pendingRow
-                : (rowByStage.get(currentStage) || 0);
+                : (rowByStage.get(currentStage) ?? 0);
             pendingRow = null;
             rowByStage.set(currentStage, gateRow + 1);
             const node = {
@@ -217,49 +217,32 @@ const OUT_TAIL    = 155;
  *           maxStage: number }.
  */
 function layout(graph) {
-    /* Group nodes by stage. Outputs are placed one stage after the max. */
-    const byStage = new Map();
-
-    const addToStage = (stage, node) => {
-        if (!byStage.has(stage))
-            byStage.set(stage, []);
-        byStage.get(stage).push(node);
-    };
-
-    for (const n of graph.inputs)
-        addToStage(0, n);
-    for (const n of graph.gates)
-        addToStage(n.stage, n);
-
     let maxGateStage = 0;
     for (const n of graph.gates)
         if (n.stage > maxGateStage)
             maxGateStage = n.stage;
 
-    /* Output labels are positioned by the renderer from gate output pins.
-     * They are not added to byStage to avoid overwriting gate positions. */
     const outputStage = maxGateStage + 1;
 
-    /* Find the tallest column to set the canvas height. */
-    let maxNodesInCol = 0;
-    for (const nodes of byStage.values())
-        if (nodes.length > maxNodesInCol)
-            maxNodesInCol = nodes.length;
+    /* Find the highest row index used across all nodes. */
+    let maxRow = 0;
+    for (const n of [...graph.inputs, ...graph.gates])
+        if (n.row > maxRow)
+            maxRow = n.row;
 
-    const canvasHeight =
-      Math.max(maxNodesInCol * ROW_SPACING + 2 * PADDING, GATE_H + 2 * PADDING);
+    const canvasHeight = Math.max(
+        (maxRow + 1) * ROW_SPACING + 2 * PADDING,
+        GATE_H + 2 * PADDING
+    );
     const cx_max      = PADDING + GATE_W / 2 + maxGateStage * COL_SPACING;
     const canvasWidth = cx_max + OUT_TAIL;
 
     const pos = new Map();
 
-    for (const [stage, nodes] of byStage.entries()) {
-        const cx          = PADDING + GATE_W / 2 + stage * COL_SPACING;
-        const totalHeight = (nodes.length - 1) * ROW_SPACING;
-        const startY      = canvasHeight / 2 - totalHeight / 2;
-        nodes.forEach((node, i) => {
-            pos.set(node.id, { x : cx, y : startY + i * ROW_SPACING });
-        });
+    for (const n of [...graph.inputs, ...graph.gates]) {
+        const cx = PADDING + GATE_W / 2 + n.stage * COL_SPACING;
+        const cy = PADDING + n.row * ROW_SPACING;
+        pos.set(n.id, { x : cx, y : cy });
     }
 
     return {

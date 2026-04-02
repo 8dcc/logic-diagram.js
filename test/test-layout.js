@@ -57,4 +57,38 @@ test('layout: canvas width covers last gate plus output label tail', () => {
     assert.strictEqual(width, 375);
 });
 
+test('layout: row hint places gate at correct y', () => {
+    const { pos } = layoutOf(
+        'input A\nstage 1\nrow 2\nnot n1 A\noutput n1\n'
+    );
+    const PADDING = 50, ROW_SPACING = 70;
+    assert.strictEqual(pos.get('n1').y, PADDING + 2 * ROW_SPACING);
+});
+
+test('layout: auto-increment row gives consecutive y values', () => {
+    const { pos } = layoutOf(
+        'input A\nstage 1\nrow 1\nnot n1 A\nbuf n2 A\noutput n1\noutput n2\n'
+    );
+    const PADDING = 50, ROW_SPACING = 70;
+    assert.strictEqual(pos.get('n1').y, PADDING + 1 * ROW_SPACING);
+    assert.strictEqual(pos.get('n2').y, PADDING + 2 * ROW_SPACING);
+});
+
+test('layout: canvas height accommodates highest row index', () => {
+    const { height } = layoutOf(
+        'input A\nstage 1\nrow 4\nnot n1 A\noutput n1\n'
+    );
+    const PADDING = 50, ROW_SPACING = 70;
+    /* maxRow=4, height = (4+1)*ROW_SPACING + 2*PADDING = 450 */
+    assert.strictEqual(height, (4 + 1) * ROW_SPACING + 2 * PADDING);
+});
+
+test('layout: row hint applies to inputs', () => {
+    const { pos } = layoutOf(
+        'row 2\ninput A\nnot n1 A\noutput n1\n'
+    );
+    const PADDING = 50, ROW_SPACING = 70;
+    assert.strictEqual(pos.get('A').y, PADDING + 2 * ROW_SPACING);
+});
+
 done();
