@@ -30,6 +30,7 @@
 const LogicDiag = {
     tickRate : 1000,      /* ms between ticks for oscillating circuits */
     stabilityChecks : 20, /* max passes before declaring oscillation */
+    debug : false,        /* enable debug rendering overlays         */
 };
 
 /* ================================================================
@@ -748,10 +749,25 @@ function render(graph, lo, simState) {
     parts.push(renderWires(graph, lo, simState));
 
     for (const gate of graph.gates) {
+        if (gate.type === 'wire')
+            continue;
         const p = pos.get(gate.id);
         if (!p)
             continue;
         parts.push(gateShape(gate.type, p.x, p.y));
+    }
+
+    if (LogicDiag.debug) {
+        for (const gate of graph.gates) {
+            if (gate.type !== 'wire')
+                continue;
+            const p = pos.get(gate.id);
+            if (!p)
+                continue;
+            const color = sigColor(simState.get(gate.id) ?? null);
+            parts.push(`<circle cx="${p.x}" cy="${p.y}" r="3"` +
+                       ` fill="${color}"/>`);
+        }
     }
 
     parts.push(renderInputs(graph, pos, simState));
