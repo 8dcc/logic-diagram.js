@@ -196,4 +196,11 @@ test('parse: invalid row number throws', () => {
     );
 });
 
+test('parse: decimal row hint is accepted', () => {
+    const g = LogicDiag._parse(
+        'input A\nstage 1\nrow 1.5\nnot n1 A\noutput n1\n'
+    );
+    assert.strictEqual(g.gates[0].row, 1.5);
+});
+
 done();

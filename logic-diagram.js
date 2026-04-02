@@ -111,7 +111,7 @@ function parse(text) {
         }
 
         if (kw === 'row') {
-            const n = parseInt(tokens[1], 10);
+            const n = parseFloat(tokens[1]);
             if (isNaN(n))
                 throw new Error('Invalid row number: ' + tokens[1]);
             pendingRow = n;
