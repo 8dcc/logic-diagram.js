@@ -662,11 +662,12 @@ function renderWires(graph, lo, simState) {
 
             let d;
             if (sx < tx - 5) {
-                /* Forward wire: horizontal, diagonal, short stub at dest */
-                const dstStub = 12;
-                const stub    = Math.min(30, (tx - sx) * 0.3);
-                d             = `M${sx},${sy} H${tx - stub}` +
-                    ` L${tx - dstStub},${ty} H${tx}`;
+                /* Forward wire: horizontal to dst_stage-0.5, diagonal to
+                 * dst_stage-0.25, then short stub to pin. */
+                const stageCx = tx + G_L;
+                const diagX0  = stageCx - 0.5 * COL_SPACING;
+                const diagX1  = stageCx - 0.35 * COL_SPACING;
+                d = `M${sx},${sy} H${diagX0} L${diagX1},${ty} H${tx}`;
             } else {
                 /* Backward (feedback) wire: right stub, short vertical,
                  * diagonal to near destination, short vertical, left to
