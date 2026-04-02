@@ -87,6 +87,7 @@ function parse(text) {
     const inputs     = [];
     const outputs    = [];
     const gates      = [];
+    const labels     = [];
     let currentStage = 1;
     const rowByStage = new Map();   /* current row counter per stage */
     let pendingRow   = null;        /* set by 'row' hint, used once */
@@ -168,6 +169,20 @@ function parse(text) {
             continue;
         }
 
+        if (kw === 'label') {
+            if (tokens.length !== 4)
+                throw new Error('Invalid label declaration: ' + line);
+            const text  = unquote(tokens[1]);
+            const stage = parseFloat(tokens[2]);
+            const row   = parseFloat(tokens[3]);
+            if (isNaN(stage))
+                throw new Error('Invalid label stage: ' + tokens[2]);
+            if (isNaN(row))
+                throw new Error('Invalid label row: ' + tokens[3]);
+            labels.push({ text, stage, row });
+            continue;
+        }
+
         if (kw === 'wire') {
             if (tokens.length !== 5)
                 throw new Error('Invalid wire declaration: ' + line);
@@ -212,7 +227,7 @@ function parse(text) {
             if (!nodes.has(inp))
                 throw new Error('Undefined node referenced: ' + inp);
 
-    return { nodes, inputs, outputs, gates };
+    return { nodes, inputs, outputs, gates, labels };
 }
 
 LogicDiag._parse = parse;
@@ -245,7 +260,7 @@ function layout(graph) {
 
     /* Find the highest row index used across all nodes. */
     let maxRow = 0;
-    for (const n of [...graph.inputs, ...graph.gates])
+    for (const n of [...graph.inputs, ...graph.gates, ...graph.labels])
         if (n.row > maxRow)
             maxRow = n.row;
 
@@ -779,6 +794,19 @@ function renderOutputs(graph, lo, simState) {
     return parts.join('\n');
 }
 
+/* Render free-floating text labels placed with the 'label' instruction. */
+function renderLabels(graph) {
+    const parts = [];
+    for (const lbl of graph.labels) {
+        const x = PADDING + GATE_W / 2 + lbl.stage * COL_SPACING;
+        const y = PADDING + lbl.row * ROW_SPACING;
+        parts.push(`<text x="${x}" y="${y}" font-family="monospace"` +
+                   ` font-size="13" fill="#222"` +
+                   ` text-anchor="middle">${escapeXml(lbl.text)}</text>`);
+    }
+    return parts.join('\n');
+}
+
 /*
  * Render a complete SVG diagram string.
  * graph    - parsed Graph
@@ -823,6 +851,7 @@ function render(graph, lo, simState) {
 
     parts.push(renderInputs(graph, pos, simState));
     parts.push(renderOutputs(graph, lo, simState));
+    parts.push(renderLabels(graph));
 
     parts.push('</svg>');
     return parts.join('\n');
@@ -860,6 +889,7 @@ function redraw(entry) {
         }),
         renderInputs(entry.graph, entry.lo.pos, newState),
         renderOutputs(entry.graph, entry.lo, newState),
+        renderLabels(entry.graph),
     ].join('\n');
     entry.svgEl.innerHTML = inner;
 

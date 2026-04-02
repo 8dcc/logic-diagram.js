@@ -22,6 +22,7 @@ Tokens are separated by spaces or tabs. Labels may be quoted with `"..."`.
 | `stage <n>`                     | Layout hint: place following gates in column `n` (integer)        |
 | `row <n>`                       | Layout hint: place following nodes at row `n` (decimals accepted) |
 | `wire <id> <src> <stage> <row>` | Passthrough routing node at explicit position (decimals accepted) |
+| `label "<text>" <stage> <row>`  | Static text placed at the given stage/row position                |
 
 - `<id>` — an identifier for the node (alphanumeric, used to wire nodes together)
 - `<src>...` — one or more node IDs that feed into this gate
@@ -94,3 +95,16 @@ output Qb "~Q"
 gate column, between the two gates. The feedback path from `Qb` to `Q`'s input
 routes through `Qf`, producing two clean diagonal legs instead of one long
 overlapping wire.
+
+### Label Nodes
+
+A `label` places a static text string at an arbitrary position. It has no
+electrical function and does not participate in simulation. Both `<stage>` and
+`<row>` accept decimals.
+
+```
+label "Master latch" 2.5 -0.5
+label "Slave latch"  6.5 -0.5
+```
+
+The text is centred on the given coordinate.
