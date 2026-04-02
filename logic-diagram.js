@@ -722,10 +722,10 @@ function renderInputs(graph, pos, simState) {
 
         const val   = simState.get(inp.id) ?? 0;
         const color = sigColor(val);
-        const lx    = p.x - GATE_W / 2; /* left edge of input area */
+        const bx = p.x - 12; /* left edge of button (centered at stage) */
 
         /* Label to the left of the button */
-        parts.push(`<text x="${lx - 8}" y="${p.y + 5}"` +
+        parts.push(`<text x="${bx - 8}" y="${p.y + 5}"` +
                    ` font-family="monospace" font-size="14" fill="#222"` +
                    ` text-anchor="end">${escapeXml(inp.label)}</text>`);
 
@@ -734,17 +734,17 @@ function renderInputs(graph, pos, simState) {
           `<g class="ld-input" cursor="pointer"` +
           ` onclick="LogicDiag._toggle(this)"` +
           ` data-node="${escapeXml(inp.id)}">` +
-          `<rect x="${lx}" y="${p.y - 12}" width="24" height="24"` +
+          `<rect x="${bx}" y="${p.y - 12}" width="24" height="24"` +
           ` rx="4" fill="${color}" stroke="#333" stroke-width="1.5"/>` +
-          `<text x="${lx + 12}" y="${p.y + 5}"` +
+          `<text x="${p.x}" y="${p.y + 5}"` +
           ` text-anchor="middle" font-family="monospace"` +
           ` font-size="13" font-weight="bold" fill="#fff"` +
           ` pointer-events="none">${val}</text>` +
           `</g>`);
 
-        /* Wire from right edge of button to gate input pin */
-        parts.push(`<line x1="${lx + 24}" y1="${p.y}"` +
-                   ` x2="${p.x + GATE_W / 2}" y2="${p.y}"` +
+        /* Wire from right edge of button to output pin */
+        parts.push(`<line x1="${p.x + 12}" y1="${p.y}"` +
+                   ` x2="${p.x + G_R}" y2="${p.y}"` +
                    ` stroke="${color}" stroke-width="2"/>`);
     }
     return parts.join('\n');
