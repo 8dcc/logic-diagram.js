@@ -18,6 +18,7 @@ Tokens are separated by spaces or tabs. Labels may be quoted with `"..."`.
 | `output <id> ["label"]`         | Output pin wired to an existing node                 |
 | `<gate-type> <id> <src>...`     | Gate node with one or more input node IDs            |
 | `stage <n>`                     | Layout hint: place following gates in column `n`     |
+| `row <n>`                       | Layout hint: place following nodes at row `n`        |
 
 - `<id>` — an identifier for the node (alphanumeric, used to wire nodes together)
 - `<src>...` — one or more node IDs that feed into this gate
@@ -50,6 +51,17 @@ not n1 D      # column 1
 
 stage 2
 and out n1 E  # column 2
+```
+
+A `row <n>` hint sets the vertical row counter. Each node placed after it
+occupies row `n`, then `n+1`, `n+2`, etc. A `stage` hint resets the row
+counter to 0.
+
+```
+stage 1
+row 2
+not n1 D      # row 2
+and g1 D E    # row 3
 ```
 
 ---
