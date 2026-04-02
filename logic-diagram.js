@@ -274,16 +274,14 @@ function layout(graph) {
 
     const outputStage = maxGateStage + 1;
 
-    /* Find the highest row index used across all nodes. */
-    let maxRow = 0;
-    for (const n of [...graph.inputs, ...graph.gates, ...graph.labels])
-        if (n.row > maxRow)
-            maxRow = n.row;
+    /* Find the row range used across all nodes. */
+    let minRow = 0, maxRow = 0;
+    for (const n of [...graph.inputs, ...graph.gates, ...graph.labels]) {
+        if (n.row < minRow) minRow = n.row;
+        if (n.row > maxRow) maxRow = n.row;
+    }
 
-    const canvasHeight = Math.max(
-        (maxRow + 1) * ROW_SPACING + 2 * PADDING,
-        GATE_H + 2 * PADDING
-    );
+    const canvasHeight = (maxRow - minRow) * ROW_SPACING + 2 * PADDING;
     const cx_max      = PADDING + GATE_W / 2 + maxGateStage * COL_SPACING;
     const canvasWidth = cx_max + OUT_TAIL;
 
@@ -291,7 +289,7 @@ function layout(graph) {
 
     for (const n of [...graph.inputs, ...graph.gates]) {
         const cx = PADDING + GATE_W / 2 + n.stage * COL_SPACING;
-        const cy = PADDING + n.row * ROW_SPACING;
+        const cy = PADDING + (n.row - minRow) * ROW_SPACING;
         pos.set(n.id, { x : cx, y : cy });
     }
 
@@ -299,7 +297,8 @@ function layout(graph) {
         pos,
         width : canvasWidth,
         height : canvasHeight,
-        maxStage : outputStage
+        maxStage : outputStage,
+        minRow,
     };
 }
 
@@ -621,7 +620,7 @@ function inPins(type, cx, cy) {
  * slightly thicker and labelled.
  */
 function renderDebugGrid(lo) {
-    const { width, height } = lo;
+    const { width, height, minRow } = lo;
     const parts = [];
 
     /* Vertical lines per stage increment */
@@ -641,12 +640,12 @@ function renderDebugGrid(lo) {
     }
 
     /* Horizontal lines per row increment */
-    const rowMin = Math.ceil((0 - PADDING) / ROW_SPACING * 4) / 4;
-    const rowMax = Math.floor((height - PADDING) / ROW_SPACING * 4) / 4;
-    const rowSteps = Math.round((rowMax - rowMin) / 0.25);
+    const rowStart = Math.ceil((0 - PADDING) / ROW_SPACING * 4) / 4 + minRow;
+    const rowEnd   = Math.floor((height - PADDING) / ROW_SPACING * 4) / 4 + minRow;
+    const rowSteps = Math.round((rowEnd - rowStart) / 0.25);
     for (let i = 0; i <= rowSteps; i++) {
-        const r     = rowMin + i * 0.25;
-        const y     = PADDING + r * ROW_SPACING;
+        const r     = rowStart + i * 0.25;
+        const y     = PADDING + (r - minRow) * ROW_SPACING;
         const major = Math.abs(Math.round(r) - r) < 0.01;
         parts.push(
             `<line x1="0" y1="${y}" x2="${width}" y2="${y}"` +
@@ -811,13 +810,14 @@ function renderOutputs(graph, lo, simState) {
 }
 
 /* Render background rectangles placed with the 'rect' instruction. */
-function renderRects(graph) {
+function renderRects(graph, lo) {
+    const { minRow } = lo;
     const parts = [];
     for (const r of graph.rects) {
         const x1 = PADDING + GATE_W / 2 + r.s1 * COL_SPACING;
-        const y1 = PADDING + r.r1 * ROW_SPACING;
+        const y1 = PADDING + (r.r1 - minRow) * ROW_SPACING;
         const x2 = PADDING + GATE_W / 2 + r.s2 * COL_SPACING;
-        const y2 = PADDING + r.r2 * ROW_SPACING;
+        const y2 = PADDING + (r.r2 - minRow) * ROW_SPACING;
         parts.push(`<rect x="${Math.min(x1, x2)}" y="${Math.min(y1, y2)}"` +
                    ` width="${Math.abs(x2 - x1)}" height="${Math.abs(y2 - y1)}"` +
                    ` rx="6" fill="#f0f4ff" stroke="#c0cce8"` +
@@ -827,11 +827,12 @@ function renderRects(graph) {
 }
 
 /* Render free-floating text labels placed with the 'label' instruction. */
-function renderLabels(graph) {
+function renderLabels(graph, lo) {
+    const { minRow } = lo;
     const parts = [];
     for (const lbl of graph.labels) {
         const x = PADDING + GATE_W / 2 + lbl.stage * COL_SPACING;
-        const y = PADDING + lbl.row * ROW_SPACING;
+        const y = PADDING + (lbl.row - minRow) * ROW_SPACING;
         parts.push(`<text x="${x}" y="${y}" font-family="monospace"` +
                    ` font-size="13" fill="#222"` +
                    ` text-anchor="middle">${escapeXml(lbl.text)}</text>`);
@@ -854,7 +855,7 @@ function render(graph, lo, simState) {
                     ` width="${width}" height="${height}"` +
                     ` style="display:block;max-width:100%;margin:auto;">` ];
 
-    parts.push(renderRects(graph));
+    parts.push(renderRects(graph, lo));
 
     if (LogicDiag.debug)
         parts.push(renderDebugGrid(lo));
@@ -885,7 +886,7 @@ function render(graph, lo, simState) {
 
     parts.push(renderInputs(graph, pos, simState));
     parts.push(renderOutputs(graph, lo, simState));
-    parts.push(renderLabels(graph));
+    parts.push(renderLabels(graph, lo));
 
     parts.push('</svg>');
     return parts.join('\n');
@@ -915,7 +916,7 @@ function redraw(entry) {
     entry.state = newState;
 
     const inner = [
-        renderRects(entry.graph),
+        renderRects(entry.graph, entry.lo),
         LogicDiag.debug ? renderDebugGrid(entry.lo) : '',
         renderWires(entry.graph, entry.lo, newState),
         ...entry.graph.gates.map(g => {
@@ -924,7 +925,7 @@ function redraw(entry) {
         }),
         renderInputs(entry.graph, entry.lo.pos, newState),
         renderOutputs(entry.graph, entry.lo, newState),
-        renderLabels(entry.graph),
+        renderLabels(entry.graph, entry.lo),
     ].join('\n');
     entry.svgEl.innerHTML = inner;
 
