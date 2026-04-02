@@ -5,22 +5,29 @@
   <title>Logic Diagram Demo</title>
   <script src="../logic-diagram.js" defer></script>
   <style>
-    body { font-family: sans-serif; max-width: 900px; margin: 2rem auto; }
-    h2   { margin-top: 2rem; }
+    body { font-family: sans-serif; max-width: 980px; margin: 2rem auto; line-height: 1.45; }
+    h2   { margin-top: 2.25rem; }
+    p.tip { margin-top: 0.4rem; color: #444; }
+    code { background: #f3f4f6; padding: 0.1rem 0.3rem; border-radius: 4px; }
   </style>
 </head>
 <body>
   <h1>Logic Diagram Demo</h1>
 
   <h2>AND gate</h2>
+  <p class="tip">Output is 1 only when both inputs are 1.</p>
+
   <script type="text/logicdiag">
     input A
     input B
+    row 0.5
     and out A B
     output out "A AND B"
   </script>
 
   <h2>D-latch</h2>
+  <p class="tip">Set <code>E=1</code> to make the latch transparent. Return <code>E=0</code> to hold the stored value.</p>
+
   <script type="text/logicdiag">
     input D
     input E
@@ -41,7 +48,8 @@
   </script>
 
   <h2>Oscillator (NOT feedback loop)</h2>
-  <p>This circuit oscillates — the wire color toggles at 1 tick/second.</p>
+  <p class="tip">This circuit oscillates — the wire color toggles at 1 tick/second.</p>
+
   <script type="text/logicdiag">
     input input
 
