@@ -3,6 +3,8 @@
 The `logicdiag` format is a compact text DSL for describing logic gate diagrams.
 Each `<script type="text/logicdiag">` block contains one diagram.
 
+See [the demo](demo/index.html) for examples.
+
 ---
 
 ## Syntax
@@ -12,13 +14,14 @@ Tokens are separated by spaces or tabs. Labels may be quoted with `"..."`.
 
 ### Declarations
 
-| Syntax                          | Description                                          |
-|---------------------------------|------------------------------------------------------|
-| `input <id> [<init>] ["label"]` | Toggleable input node; init is 0/1/true/false        |
-| `output <id> ["label"]`         | Output pin wired to an existing node                 |
-| `<gate-type> <id> <src>...`     | Gate node with one or more input node IDs            |
-| `stage <n>`                     | Layout hint: place following gates in column `n`     |
-| `row <n>`                       | Layout hint: place following nodes at row `n`        |
+| Syntax                          | Description                                                       |
+|---------------------------------|-------------------------------------------------------------------|
+| `input <id> [<init>] ["label"]` | Toggleable input node; init is 0/1/true/false                     |
+| `output <id> ["label"]`         | Output pin wired to an existing node                              |
+| `<gate-type> <id> <src>...`     | Gate node with one or more input node IDs                         |
+| `stage <n>`                     | Layout hint: place following gates in column `n` (integer)        |
+| `row <n>`                       | Layout hint: place following nodes at row `n` (decimals accepted) |
+| `wire <id> <src> <stage> <row>` | Passthrough routing node at explicit position (decimals accepted) |
 
 - `<id>` — an identifier for the node (alphanumeric, used to wire nodes together)
 - `<src>...` — one or more node IDs that feed into this gate
@@ -64,91 +67,30 @@ not n1 D      # row 2
 and g1 D E    # row 3
 ```
 
----
+### Wire Nodes
 
-## Examples
+A `wire` node is a named passthrough point with an explicit position. It carries
+its source's signal value and influences routing by splitting a connection into
+two legs. Use it to avoid wire overlaps in feedback circuits.
 
-### AND gate
-
-```
-input A
-input B
-and out A B
-output out
-```
-
-### AND gate with high initial input
-
-```
-input A 1
-input B
-and out A B
-output out
-```
-
-`A` starts high; `B` starts low.
-
-### D-latch (SR-NAND)
+Both `<stage>` and `<row>` accept decimals: `0.5` places the node halfway
+between two columns/rows.
 
 ```
 input S
 input R
 
 stage 1
-nand Q  S  Qb
-nand Qb R  Q
+nor  Q   Qf R
+nor  Qb  S  Q
+
+wire Qf  Qb  0.5  1.5
 
 output Q
 output Qb "~Q"
 ```
 
-Feedback loops are supported. The simulator runs repeated single-pass evaluations
-and detects oscillating circuits automatically.
-
-### NOT feedback (oscillator)
-
-```
-input EN
-not osc osc
-output osc
-```
-
-A circuit that never stabilizes will animate at the configured tick rate
-(default: 1000 ms).
-
----
-
-## Embedding in org-mode
-
-Load the library once in your org file's HTML header:
-
-```org
-#+HTML_HEAD: <script src="/js/logic-diagram.js" defer></script>
-```
-
-Then declare each diagram inline:
-
-```org
-#+begin_export html
-<script type="text/logicdiag">
-  input A
-  input B
-  and out A B
-  output out
-</script>
-#+end_export
-```
-
-Browsers with JavaScript disabled silently ignore
-`<script type="text/logicdiag">` — no fallback content is shown.
-
----
-
-## Configuration
-
-The `LogicDiag` global object exposes two settings:
-
-```js
-LogicDiag.tickRate        = 1000; // ms between ticks for oscillating circuits
-LogicDiag.stabilityChecks = 20;   // max passes before declaring oscillation
-```
+`Qf` is positioned at stage 0.5, row 1.5 — between the input column and the
+gate column, between the two gates. The feedback path from `Qb` to `Q`'s input
+routes through `Qf`, producing two clean diagonal legs instead of one long
+overlapping wire.
