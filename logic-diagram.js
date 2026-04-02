@@ -586,6 +586,48 @@ function inPins(type, cx, cy) {
 }
 
 /*
+ * Render a debug grid aligned to the stage/row coordinate system.
+ * Minor lines every 0.25 units; major lines (integer values) are
+ * slightly thicker and labelled.
+ */
+function renderDebugGrid(lo) {
+    const { width, height } = lo;
+    const parts = [];
+
+    /* Vertical lines per stage increment */
+    const stageMin = Math.ceil(
+        (0 - PADDING - GATE_W / 2) / COL_SPACING * 4) / 4;
+    const stageMax = Math.floor(
+        (width - PADDING - GATE_W / 2) / COL_SPACING * 4) / 4;
+    const stageSteps = Math.round((stageMax - stageMin) / 0.25);
+    for (let i = 0; i <= stageSteps; i++) {
+        const s      = stageMin + i * 0.25;
+        const x      = PADDING + GATE_W / 2 + s * COL_SPACING;
+        const major  = Math.abs(Math.round(s) - s) < 0.01;
+        parts.push(
+            `<line x1="${x}" y1="0" x2="${x}" y2="${height}"` +
+            ` stroke="#aaa" stroke-width="${major ? 0.8 : 0.3}"` +
+            ` stroke-dasharray="${major ? '5,4' : '2,5'}"/>`);
+    }
+
+    /* Horizontal lines per row increment */
+    const rowMin = Math.ceil((0 - PADDING) / ROW_SPACING * 4) / 4;
+    const rowMax = Math.floor((height - PADDING) / ROW_SPACING * 4) / 4;
+    const rowSteps = Math.round((rowMax - rowMin) / 0.25);
+    for (let i = 0; i <= rowSteps; i++) {
+        const r     = rowMin + i * 0.25;
+        const y     = PADDING + r * ROW_SPACING;
+        const major = Math.abs(Math.round(r) - r) < 0.01;
+        parts.push(
+            `<line x1="0" y1="${y}" x2="${width}" y2="${y}"` +
+            ` stroke="#aaa" stroke-width="${major ? 0.8 : 0.3}"` +
+            ` stroke-dasharray="${major ? '5,4' : '2,5'}"/>`);
+    }
+
+    return parts.join('\n');
+}
+
+/*
  * Render all wires as orthogonal SVG paths.
  * Forward wires (source stage < target stage): H to midpoint, diagonal
  * to target y, short H to pin.
@@ -751,6 +793,9 @@ function render(graph, lo, simState) {
                     ` width="${width}" height="${height}"` +
                     ` style="display:block;max-width:100%;margin:auto;">` ];
 
+    if (LogicDiag.debug)
+        parts.push(renderDebugGrid(lo));
+
     parts.push(renderWires(graph, lo, simState));
 
     for (const gate of graph.gates) {
@@ -806,6 +851,7 @@ function redraw(entry) {
     entry.state = newState;
 
     const inner = [
+        LogicDiag.debug ? renderDebugGrid(entry.lo) : '',
         renderWires(entry.graph, entry.lo, newState),
         ...entry.graph.gates.map(g => {
             const p = entry.lo.pos.get(g.id);
