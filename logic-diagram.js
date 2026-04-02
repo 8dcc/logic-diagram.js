@@ -88,6 +88,7 @@ function parse(text) {
     const outputs    = [];
     const gates      = [];
     const labels     = [];
+    const rects      = [];
     let currentStage = 1;
     const rowByStage = new Map();   /* current row counter per stage */
     let pendingRow   = null;        /* set by 'row' hint, used once */
@@ -169,6 +170,21 @@ function parse(text) {
             continue;
         }
 
+        if (kw === 'rect') {
+            if (tokens.length !== 5)
+                throw new Error('Invalid rect declaration: ' + line);
+            const s1 = parseFloat(tokens[1]);
+            const r1 = parseFloat(tokens[2]);
+            const s2 = parseFloat(tokens[3]);
+            const r2 = parseFloat(tokens[4]);
+            if (isNaN(s1) || isNaN(s2))
+                throw new Error('Invalid rect stage: ' + line);
+            if (isNaN(r1) || isNaN(r2))
+                throw new Error('Invalid rect row: ' + line);
+            rects.push({ s1, r1, s2, r2 });
+            continue;
+        }
+
         if (kw === 'label') {
             if (tokens.length !== 4)
                 throw new Error('Invalid label declaration: ' + line);
@@ -227,7 +243,7 @@ function parse(text) {
             if (!nodes.has(inp))
                 throw new Error('Undefined node referenced: ' + inp);
 
-    return { nodes, inputs, outputs, gates, labels };
+    return { nodes, inputs, outputs, gates, labels, rects };
 }
 
 LogicDiag._parse = parse;
@@ -794,6 +810,22 @@ function renderOutputs(graph, lo, simState) {
     return parts.join('\n');
 }
 
+/* Render background rectangles placed with the 'rect' instruction. */
+function renderRects(graph) {
+    const parts = [];
+    for (const r of graph.rects) {
+        const x1 = PADDING + GATE_W / 2 + r.s1 * COL_SPACING;
+        const y1 = PADDING + r.r1 * ROW_SPACING;
+        const x2 = PADDING + GATE_W / 2 + r.s2 * COL_SPACING;
+        const y2 = PADDING + r.r2 * ROW_SPACING;
+        parts.push(`<rect x="${Math.min(x1, x2)}" y="${Math.min(y1, y2)}"` +
+                   ` width="${Math.abs(x2 - x1)}" height="${Math.abs(y2 - y1)}"` +
+                   ` rx="6" fill="#f0f4ff" stroke="#c0cce8"` +
+                   ` stroke-width="1" stroke-dasharray="4,3"/>`);
+    }
+    return parts.join('\n');
+}
+
 /* Render free-floating text labels placed with the 'label' instruction. */
 function renderLabels(graph) {
     const parts = [];
@@ -821,6 +853,8 @@ function render(graph, lo, simState) {
                     ` viewBox="0 0 ${width} ${height}"` +
                     ` width="${width}" height="${height}"` +
                     ` style="display:block;max-width:100%;margin:auto;">` ];
+
+    parts.push(renderRects(graph));
 
     if (LogicDiag.debug)
         parts.push(renderDebugGrid(lo));
@@ -881,6 +915,7 @@ function redraw(entry) {
     entry.state = newState;
 
     const inner = [
+        renderRects(entry.graph),
         LogicDiag.debug ? renderDebugGrid(entry.lo) : '',
         renderWires(entry.graph, entry.lo, newState),
         ...entry.graph.gates.map(g => {

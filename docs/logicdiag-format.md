@@ -23,6 +23,7 @@ Tokens are separated by spaces or tabs. Labels may be quoted with `"..."`.
 | `row <n>`                       | Layout hint: place following nodes at row `n` (decimals accepted) |
 | `wire <id> <src> <stage> <row>` | Passthrough routing node at explicit position (decimals accepted) |
 | `label "<text>" <stage> <row>`  | Static text placed at the given stage/row position                |
+| `rect <s1> <r1> <s2> <r2>`      | Background rectangle from (s1,r1) to (s2,r2)                      |
 
 - `<id>` — an identifier for the node (alphanumeric, used to wire nodes together)
 - `<src>...` — one or more node IDs that feed into this gate
@@ -108,3 +109,14 @@ label "Slave latch"  6.5 -0.5
 ```
 
 The text is centred on the given coordinate.
+
+### Rect Nodes
+
+A `rect` draws a background rectangle between two stage/row corners. It renders
+behind everything else and is useful for grouping or highlighting a section of
+the circuit. Both stage and row values accept decimals.
+
+```
+rect 1.5 -0.5  4.5 2.5
+label "Master latch" 3 -0.5
+```
