@@ -289,43 +289,45 @@ function stageRowToXY(stage, row, minRow) {
  * Returns { pos: Map<id, {x,y}>, width: number, height: number,
  *           maxStage: number }.
  */
-function layout(graph) {
-    let maxGateStage = 0;
-    for (const n of graph.gates)
-        if (n.stage > maxGateStage)
-            maxGateStage = n.stage;
+const Layout = {
+    compute(graph) {
+        let maxGateStage = 0;
+        for (const n of graph.gates)
+            if (n.stage > maxGateStage)
+                maxGateStage = n.stage;
 
-    const outputStage = maxGateStage + 1;
+        const outputStage = maxGateStage + 1;
 
-    /* Find the row range used across all nodes. */
-    let minRow = 0, maxRow = 0;
-    for (const n of [...graph.inputs, ...graph.gates, ...graph.labels]) {
-        if (n.row < minRow)
-            minRow = n.row;
-        if (n.row > maxRow)
-            maxRow = n.row;
-    }
+        /* Find the row range used across all nodes. */
+        let minRow = 0, maxRow = 0;
+        for (const n of [...graph.inputs, ...graph.gates, ...graph.labels]) {
+            if (n.row < minRow)
+                minRow = n.row;
+            if (n.row > maxRow)
+                maxRow = n.row;
+        }
 
-    const canvasHeight = (maxRow - minRow) * ROW_SPACING + 2 * PADDING;
-    const cx_max       = PADDING + GATE_W / 2 + maxGateStage * COL_SPACING;
-    const canvasWidth  = cx_max + OUT_TAIL;
+        const canvasHeight = (maxRow - minRow) * ROW_SPACING + 2 * PADDING;
+        const cx_max       = PADDING + GATE_W / 2 + maxGateStage * COL_SPACING;
+        const canvasWidth  = cx_max + OUT_TAIL;
 
-    const pos = new Map();
+        const pos = new Map();
 
-    for (const n of [...graph.inputs, ...graph.gates]) {
-        pos.set(n.id, stageRowToXY(n.stage, n.row, minRow));
-    }
+        for (const n of [...graph.inputs, ...graph.gates]) {
+            pos.set(n.id, stageRowToXY(n.stage, n.row, minRow));
+        }
 
-    return {
-        pos,
-        width : canvasWidth,
-        height : canvasHeight,
-        maxStage : outputStage,
-        minRow,
-    };
-}
+        return {
+            pos,
+            width : canvasWidth,
+            height : canvasHeight,
+            maxStage : outputStage,
+            minRow,
+        };
+    },
+};
 
-LogicDiag._layout = layout;
+LogicDiag._layout = Layout.compute.bind(Layout);
 
 /* ================================================================
  * Simulator
@@ -656,8 +658,8 @@ function inPins(type, cx, cy) {
  * Minor lines every 0.25 units; major lines (integer values) are
  * slightly thicker and labelled.
  */
-function renderDebugGrid(lo) {
-    const { width, height, minRow } = lo;
+function renderDebugGrid(layout) {
+    const { width, height, minRow } = layout;
     const parts                     = [];
 
     /* Vertical lines per stage increment */
@@ -699,8 +701,8 @@ function renderDebugGrid(lo) {
  * Backward wires (feedback loops): short H right, short V up/down,
  * diagonal to near destination, short V to target y, H to pin.
  */
-function renderWires(graph, lo, simState) {
-    const { pos } = lo;
+function renderWires(graph, layout, simState) {
+    const { pos } = layout;
     const parts   = [];
 
     for (const node of [...graph.inputs, ...graph.gates]) {
@@ -821,8 +823,8 @@ function renderInputs(graph, pos, simState) {
  * Render output labels and colored dots to the right of each output
  * gate's output pin.
  */
-function renderOutputs(graph, lo, simState) {
-    const { pos } = lo;
+function renderOutputs(graph, layout, simState) {
+    const { pos } = layout;
     const parts   = [];
     for (const out of graph.outputs) {
         const srcId   = out.ins[0];
@@ -847,8 +849,8 @@ function renderOutputs(graph, lo, simState) {
 }
 
 /* Render background rectangles placed with the 'rect' instruction. */
-function renderRects(graph, lo) {
-    const { minRow } = lo;
+function renderRects(graph, layout) {
+    const { minRow } = layout;
     const parts      = [];
     for (const r of graph.rects) {
         const { x : x1, y : y1 } = stageRowToXY(r.s1, r.r1, minRow);
@@ -863,8 +865,8 @@ function renderRects(graph, lo) {
 }
 
 /* Render free-floating text labels placed with the 'label' instruction. */
-function renderLabels(graph, lo) {
-    const { minRow } = lo;
+function renderLabels(graph, layout) {
+    const { minRow } = layout;
     const parts      = [];
     for (const lbl of graph.labels) {
         const { x, y } = stageRowToXY(lbl.stage, lbl.row, minRow);
@@ -878,11 +880,11 @@ function renderLabels(graph, lo) {
 /*
  * Render a complete SVG diagram string.
  * graph    - parsed Graph
- * lo       - layout result from layout()
+ * layout   - layout result from Layout.compute()
  * simState - SimState (Map<id, 0|1|null>)
  */
-function render(graph, lo, simState) {
-    const { pos, width, height } = lo;
+function render(graph, layout, simState) {
+    const { pos, width, height } = layout;
 
     const parts = [ `<svg xmlns="http://www.w3.org/2000/svg"` +
                     ` class="logicdiag"` +
@@ -890,12 +892,12 @@ function render(graph, lo, simState) {
                     ` width="${width}" height="${height}"` +
                     ` style="display:block;max-width:100%;margin:auto;">` ];
 
-    parts.push(renderRects(graph, lo));
+    parts.push(renderRects(graph, layout));
 
     if (LogicDiag.debug)
-        parts.push(renderDebugGrid(lo));
+        parts.push(renderDebugGrid(layout));
 
-    parts.push(renderWires(graph, lo, simState));
+    parts.push(renderWires(graph, layout, simState));
 
     for (const gate of graph.gates) {
         if (gate.type === 'wire')
@@ -920,8 +922,8 @@ function render(graph, lo, simState) {
     }
 
     parts.push(renderInputs(graph, pos, simState));
-    parts.push(renderOutputs(graph, lo, simState));
-    parts.push(renderLabels(graph, lo));
+    parts.push(renderOutputs(graph, layout, simState));
+    parts.push(renderLabels(graph, layout));
 
     parts.push('</svg>');
     return parts.join('\n');
@@ -933,7 +935,7 @@ LogicDiag._render = render;
  * Diagram Registry
  * ================================================================ */
 
-/* Map from SVG DOM element -> { graph, lo, state, timerId } */
+/* Map from SVG DOM element -> { graph, layout, state, timerId } */
 const _diagrams = new Map();
 
 /*
@@ -951,16 +953,16 @@ function redraw(entry) {
     entry.state = newState;
 
     const inner = [
-        renderRects(entry.graph, entry.lo),
-        LogicDiag.debug ? renderDebugGrid(entry.lo) : '',
-        renderWires(entry.graph, entry.lo, newState),
+        renderRects(entry.graph, entry.layout),
+        LogicDiag.debug ? renderDebugGrid(entry.layout) : '',
+        renderWires(entry.graph, entry.layout, newState),
         ...entry.graph.gates.map(g => {
-            const p = entry.lo.pos.get(g.id);
+            const p = entry.layout.pos.get(g.id);
             return p ? gateShape(g.type, p.x, p.y) : '';
         }),
-        renderInputs(entry.graph, entry.lo.pos, newState),
-        renderOutputs(entry.graph, entry.lo, newState),
-        renderLabels(entry.graph, entry.lo),
+        renderInputs(entry.graph, entry.layout.pos, newState),
+        renderOutputs(entry.graph, entry.layout, newState),
+        renderLabels(entry.graph, entry.layout),
     ].join('\n');
     entry.svgEl.innerHTML = inner;
 
@@ -989,8 +991,8 @@ LogicDiag._toggle = function(el) {
  * Only callable in a browser environment (requires document).
  */
 function renderDiagram(text) {
-    const graph = Parser.parse(text);
-    const lo    = layout(graph);
+    const graph  = Parser.parse(text);
+    const layout = Layout.compute(graph);
 
     const state = new Map();
     for (const inp of graph.inputs)
@@ -1000,7 +1002,7 @@ function renderDiagram(text) {
 
     const { state : initState, stable } = checkStability(graph, state);
 
-    const svgStr = render(graph, lo, initState);
+    const svgStr = render(graph, layout, initState);
 
     const tmp     = document.createElement('div');
     tmp.innerHTML = svgStr;
@@ -1008,7 +1010,7 @@ function renderDiagram(text) {
 
     const entry = {
         graph,
-        lo,
+        layout,
         svgEl,
         state : initState,
         timerId : null,
