@@ -957,6 +957,8 @@ const Registry = {
               setTimeout(() => Registry.redraw(entry), LogicDiag.tickRate);
     },
 
+    /* Toggle the value of an input node and redraw. 'el' is the
+     * <g class="ld-input"> element that was clicked. */
     toggle(el) {
         const svgEl  = el.closest('svg');
         const nodeId = el.getAttribute('data-node');
