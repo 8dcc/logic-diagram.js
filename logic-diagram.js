@@ -799,6 +799,12 @@ function renderInputs(graph, pos, simState) {
                    ` font-family="monospace" font-size="14" fill="#222"` +
                    ` text-anchor="end">${escapeXml(inp.label)}</text>`);
 
+        /* Wire from right edge of button to output pin (rendered before
+         * the button so it appears behind it) */
+        parts.push(`<line x1="${p.x + 12}" y1="${p.y}"` +
+                   ` x2="${p.x + PIN_RIGHT}" y2="${p.y}"` +
+                   ` stroke="${color}" stroke-width="2"/>`);
+
         /* Clickable toggle button: colored rect + value digit */
         parts.push(
           `<g class="ld-input" cursor="pointer"` +
@@ -811,11 +817,6 @@ function renderInputs(graph, pos, simState) {
           ` font-size="13" font-weight="bold" fill="#fff"` +
           ` pointer-events="none">${val}</text>` +
           `</g>`);
-
-        /* Wire from right edge of button to output pin */
-        parts.push(`<line x1="${p.x + 12}" y1="${p.y}"` +
-                   ` x2="${p.x + PIN_RIGHT}" y2="${p.y}"` +
-                   ` stroke="${color}" stroke-width="2"/>`);
     }
     return parts.join('\n');
 }
