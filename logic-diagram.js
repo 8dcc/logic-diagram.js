@@ -261,6 +261,14 @@ const OUT_DOT_OFFSET = 0.35 * COL_SPACING; /* gate centre to output dot */
 /* Space from the last gate centre to the SVG right edge. */
 const OUT_TAIL    = OUT_DOT_OFFSET + 8 + 80 + 25;
 
+/* Convert a (stage, row) grid position to SVG {x, y} coordinates. */
+function stageRowToXY(stage, row, minRow) {
+    return {
+        x : PADDING + GATE_W / 2 + stage * COL_SPACING,
+        y : PADDING + (row - minRow) * ROW_SPACING,
+    };
+}
+
 /*
  * Assign center {x, y} coordinates to every node in 'graph'.
  * Returns { pos: Map<id, {x,y}>, width: number, height: number,
@@ -288,9 +296,7 @@ function layout(graph) {
     const pos = new Map();
 
     for (const n of [...graph.inputs, ...graph.gates]) {
-        const cx = PADDING + GATE_W / 2 + n.stage * COL_SPACING;
-        const cy = PADDING + (n.row - minRow) * ROW_SPACING;
-        pos.set(n.id, { x : cx, y : cy });
+        pos.set(n.id, stageRowToXY(n.stage, n.row, minRow));
     }
 
     return {
@@ -476,11 +482,11 @@ LogicDiag._checkStability = checkStability;
  * SVG Renderer
  * ================================================================ */
 
-const G_L = 20; /* distance from center to left edge (input pin x) */
-const G_R = 20; /* distance from center to right (output pin x, non-inverted) */
-const G_H = 13; /* half-height of gate body */
-const G_PY  = 8; /* y-offset for the two input pins on 2-input gates */
-const G_BUB = 4; /* invert bubble radius */
+const PIN_LEFT     = 20; /* centre to input pin x */
+const PIN_RIGHT    = 20; /* centre to output pin x */
+const HALF_HEIGHT  = 13; /* half-height of gate body */
+const PIN_OFFSET_Y =  8; /* y-offset of top/bottom input pins */
+const BUBBLE_R     =  4; /* invert bubble radius */
 
 /* Signal state -> CSS color string */
 const COLOR_HIGH    = '#22c55e'; /* bright green */
@@ -513,75 +519,75 @@ function gateShape(type, cx, cy) {
 
     switch (type) {
         case 'buf':
-            return `<polygon points="${cx - G_L},${cy - G_H} ${cx - G_L},${
-              cy + G_H} ${cx + G_R},${cy}" ${sk}/>`;
+            return `<polygon points="${cx - PIN_LEFT},${cy - HALF_HEIGHT} ${cx - PIN_LEFT},${
+              cy + HALF_HEIGHT} ${cx + PIN_RIGHT},${cy}" ${sk}/>`;
 
         case 'not':
-            /* Triangle tip at cx+G_R-2*G_BUB so bubble right edge = cx+G_R */
-            return (`<polygon points="${cx - G_L},${cy - G_H} ${cx - G_L},${
-                      cy + G_H} ${cx + G_R - G_BUB * 2},${cy}" ${sk}/>` +
-                    `<circle cx="${cx + G_R - G_BUB}" cy="${cy}" r="${G_BUB}" ${
+            /* Triangle tip at cx+PIN_RIGHT-2*BUBBLE_R so bubble right edge = cx+PIN_RIGHT */
+            return (`<polygon points="${cx - PIN_LEFT},${cy - HALF_HEIGHT} ${cx - PIN_LEFT},${
+                      cy + HALF_HEIGHT} ${cx + PIN_RIGHT - BUBBLE_R * 2},${cy}" ${sk}/>` +
+                    `<circle cx="${cx + PIN_RIGHT - BUBBLE_R}" cy="${cy}" r="${BUBBLE_R}" ${
                       sk}/>`);
 
         case 'and':
             /* D-shape: flat left side, two quadratic beziers on the right */
-            return (`<path d="M${cx - G_L},${cy - G_H} H${cx - 4}` +
-                    ` Q${cx + G_R},${cy - G_H} ${cx + G_R},${cy}` +
-                    ` Q${cx + G_R},${cy + G_H} ${cx - 4},${cy + G_H}` +
-                    ` H${cx - G_L} Z" ${sk}/>`);
+            return (`<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT} H${cx - 4}` +
+                    ` Q${cx + PIN_RIGHT},${cy - HALF_HEIGHT} ${cx + PIN_RIGHT},${cy}` +
+                    ` Q${cx + PIN_RIGHT},${cy + HALF_HEIGHT} ${cx - 4},${cy + HALF_HEIGHT}` +
+                    ` H${cx - PIN_LEFT} Z" ${sk}/>`);
 
         case 'nand': {
             /* D-shape body ending before bubble */
-            const bx = cx + G_R - G_BUB * 2; /* body right edge = cx+12 */
-            return (`<path d="M${cx - G_L},${cy - G_H} H${cx - 4}` +
-                    ` Q${bx},${cy - G_H} ${bx},${cy}` +
-                    ` Q${bx},${cy + G_H} ${cx - 4},${cy + G_H}` +
-                    ` H${cx - G_L} Z" ${sk}/>` +
-                    `<circle cx="${cx + G_R - G_BUB}" cy="${cy}" r="${G_BUB}" ${
+            const bx = cx + PIN_RIGHT - BUBBLE_R * 2; /* body right edge = cx+12 */
+            return (`<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT} H${cx - 4}` +
+                    ` Q${bx},${cy - HALF_HEIGHT} ${bx},${cy}` +
+                    ` Q${bx},${cy + HALF_HEIGHT} ${cx - 4},${cy + HALF_HEIGHT}` +
+                    ` H${cx - PIN_LEFT} Z" ${sk}/>` +
+                    `<circle cx="${cx + PIN_RIGHT - BUBBLE_R}" cy="${cy}" r="${BUBBLE_R}" ${
                       sk}/>`);
         }
 
         case 'or':
             /* Curved back, pointed front */
             return (
-              `<path d="M${cx - G_L},${cy - G_H}` +
-              ` Q${cx - G_L + 12},${cy - G_H} ${cx + G_R},${cy}` +
-              ` Q${cx - G_L + 12},${cy + G_H} ${cx - G_L},${cy + G_H}` +
-              ` Q${cx - G_L + 7},${cy} ${cx - G_L},${cy - G_H} Z" ${sk}/>`);
+              `<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT}` +
+              ` Q${cx - PIN_LEFT + 12},${cy - HALF_HEIGHT} ${cx + PIN_RIGHT},${cy}` +
+              ` Q${cx - PIN_LEFT + 12},${cy + HALF_HEIGHT} ${cx - PIN_LEFT},${cy + HALF_HEIGHT}` +
+              ` Q${cx - PIN_LEFT + 7},${cy} ${cx - PIN_LEFT},${cy - HALF_HEIGHT} Z" ${sk}/>`);
 
         case 'nor': {
-            const bx = cx + G_R - G_BUB * 2;
+            const bx = cx + PIN_RIGHT - BUBBLE_R * 2;
             return (
-              `<path d="M${cx - G_L},${cy - G_H}` +
-              ` Q${cx - G_L + 12},${cy - G_H} ${bx},${cy}` +
-              ` Q${cx - G_L + 12},${cy + G_H} ${cx - G_L},${cy + G_H}` +
-              ` Q${cx - G_L + 7},${cy} ${cx - G_L},${cy - G_H} Z" ${sk}/>` +
-              `<circle cx="${cx + G_R - G_BUB}" cy="${cy}" r="${G_BUB}" ${
+              `<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT}` +
+              ` Q${cx - PIN_LEFT + 12},${cy - HALF_HEIGHT} ${bx},${cy}` +
+              ` Q${cx - PIN_LEFT + 12},${cy + HALF_HEIGHT} ${cx - PIN_LEFT},${cy + HALF_HEIGHT}` +
+              ` Q${cx - PIN_LEFT + 7},${cy} ${cx - PIN_LEFT},${cy - HALF_HEIGHT} Z" ${sk}/>` +
+              `<circle cx="${cx + PIN_RIGHT - BUBBLE_R}" cy="${cy}" r="${BUBBLE_R}" ${
                 sk}/>`);
         }
 
         case 'xor':
             /* OR body + extra arc on left */
             return (
-              `<path d="M${cx - G_L},${cy - G_H}` +
-              ` Q${cx - G_L + 12},${cy - G_H} ${cx + G_R},${cy}` +
-              ` Q${cx - G_L + 12},${cy + G_H} ${cx - G_L},${cy + G_H}` +
-              ` Q${cx - G_L + 7},${cy} ${cx - G_L},${cy - G_H} Z" ${sk}/>` +
-              `<path d="M${cx - G_L - 5},${cy - G_H}` +
-              ` Q${cx - G_L + 2},${cy} ${cx - G_L - 5},${
-                cy + G_H}" fill="none" ${sk}/>`);
+              `<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT}` +
+              ` Q${cx - PIN_LEFT + 12},${cy - HALF_HEIGHT} ${cx + PIN_RIGHT},${cy}` +
+              ` Q${cx - PIN_LEFT + 12},${cy + HALF_HEIGHT} ${cx - PIN_LEFT},${cy + HALF_HEIGHT}` +
+              ` Q${cx - PIN_LEFT + 7},${cy} ${cx - PIN_LEFT},${cy - HALF_HEIGHT} Z" ${sk}/>` +
+              `<path d="M${cx - PIN_LEFT - 5},${cy - HALF_HEIGHT}` +
+              ` Q${cx - PIN_LEFT + 2},${cy} ${cx - PIN_LEFT - 5},${
+                cy + HALF_HEIGHT}" fill="none" ${sk}/>`);
 
         case 'xnor': {
-            const bx = cx + G_R - G_BUB * 2;
+            const bx = cx + PIN_RIGHT - BUBBLE_R * 2;
             return (
-              `<path d="M${cx - G_L},${cy - G_H}` +
-              ` Q${cx - G_L + 12},${cy - G_H} ${bx},${cy}` +
-              ` Q${cx - G_L + 12},${cy + G_H} ${cx - G_L},${cy + G_H}` +
-              ` Q${cx - G_L + 7},${cy} ${cx - G_L},${cy - G_H} Z" ${sk}/>` +
-              `<path d="M${cx - G_L - 5},${cy - G_H}` +
-              ` Q${cx - G_L + 2},${cy} ${cx - G_L - 5},${
-                cy + G_H}" fill="none" ${sk}/>` +
-              `<circle cx="${cx + G_R - G_BUB}" cy="${cy}" r="${G_BUB}" ${
+              `<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT}` +
+              ` Q${cx - PIN_LEFT + 12},${cy - HALF_HEIGHT} ${bx},${cy}` +
+              ` Q${cx - PIN_LEFT + 12},${cy + HALF_HEIGHT} ${cx - PIN_LEFT},${cy + HALF_HEIGHT}` +
+              ` Q${cx - PIN_LEFT + 7},${cy} ${cx - PIN_LEFT},${cy - HALF_HEIGHT} Z" ${sk}/>` +
+              `<path d="M${cx - PIN_LEFT - 5},${cy - HALF_HEIGHT}` +
+              ` Q${cx - PIN_LEFT + 2},${cy} ${cx - PIN_LEFT - 5},${
+                cy + HALF_HEIGHT}" fill="none" ${sk}/>` +
+              `<circle cx="${cx + PIN_RIGHT - BUBBLE_R}" cy="${cy}" r="${BUBBLE_R}" ${
                 sk}/>`);
         }
 
@@ -592,12 +598,12 @@ function gateShape(type, cx, cy) {
 
 /*
  * Return the output pin position { x, y } for a gate at (cx, cy).
- * For inverted gates the bubble right edge is cx+G_R.
+ * For inverted gates the bubble right edge is cx+PIN_RIGHT.
  */
 function outPin(type, cx, cy) {
     if (type === 'wire')
         return { x : cx, y : cy };
-    return { x : cx + G_R, y : cy };
+    return { x : cx + PIN_RIGHT, y : cy };
 }
 
 /*
@@ -608,10 +614,10 @@ function inPins(type, cx, cy) {
     if (type === 'wire')
         return [ { x : cx, y : cy } ];
     if (type === 'not' || type === 'buf')
-        return [ { x : cx - G_L, y : cy } ];
+        return [ { x : cx - PIN_LEFT, y : cy } ];
     const isXorFamily = type === 'xor' || type === 'xnor';
-    const x           = isXorFamily ? cx - G_L + 5 : cx - G_L;
-    return [ { x, y : cy - G_PY }, { x, y : cy + G_PY } ];
+    const x           = isXorFamily ? cx - PIN_LEFT + 5 : cx - PIN_LEFT;
+    return [ { x, y : cy - PIN_OFFSET_Y }, { x, y : cy + PIN_OFFSET_Y } ];
 }
 
 /*
@@ -693,7 +699,7 @@ function renderWires(graph, lo, simState) {
             if (sx < tx - 5) {
                 /* Forward wire: horizontal to dst_stage-0.5, diagonal to
                  * dst_stage-0.25, then short stub to pin. */
-                const stageCx = tx + G_L;
+                const stageCx = tx + PIN_LEFT;
                 const diagX0  = stageCx - 0.5 * COL_SPACING;
                 const diagX1  = stageCx - 0.35 * COL_SPACING;
                 d = `M${sx},${sy} H${diagX0} L${diagX1},${ty} H${tx}`;
@@ -774,7 +780,7 @@ function renderInputs(graph, pos, simState) {
 
         /* Wire from right edge of button to output pin */
         parts.push(`<line x1="${p.x + 12}" y1="${p.y}"` +
-                   ` x2="${p.x + G_R}" y2="${p.y}"` +
+                   ` x2="${p.x + PIN_RIGHT}" y2="${p.y}"` +
                    ` stroke="${color}" stroke-width="2"/>`);
     }
     return parts.join('\n');
@@ -814,10 +820,8 @@ function renderRects(graph, lo) {
     const { minRow } = lo;
     const parts = [];
     for (const r of graph.rects) {
-        const x1 = PADDING + GATE_W / 2 + r.s1 * COL_SPACING;
-        const y1 = PADDING + (r.r1 - minRow) * ROW_SPACING;
-        const x2 = PADDING + GATE_W / 2 + r.s2 * COL_SPACING;
-        const y2 = PADDING + (r.r2 - minRow) * ROW_SPACING;
+        const { x : x1, y : y1 } = stageRowToXY(r.s1, r.r1, minRow);
+        const { x : x2, y : y2 } = stageRowToXY(r.s2, r.r2, minRow);
         parts.push(`<rect x="${Math.min(x1, x2)}" y="${Math.min(y1, y2)}"` +
                    ` width="${Math.abs(x2 - x1)}" height="${Math.abs(y2 - y1)}"` +
                    ` rx="6" fill="#f0f4ff" stroke="#c0cce8"` +
@@ -831,8 +835,7 @@ function renderLabels(graph, lo) {
     const { minRow } = lo;
     const parts = [];
     for (const lbl of graph.labels) {
-        const x = PADDING + GATE_W / 2 + lbl.stage * COL_SPACING;
-        const y = PADDING + (lbl.row - minRow) * ROW_SPACING;
+        const { x, y } = stageRowToXY(lbl.stage, lbl.row, minRow);
         parts.push(`<text x="${x}" y="${y}" font-family="monospace"` +
                    ` font-size="13" fill="#222"` +
                    ` text-anchor="middle">${escapeXml(lbl.text)}</text>`);
