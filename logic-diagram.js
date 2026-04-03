@@ -444,14 +444,10 @@ function topoSortGates(graph) {
     return sorted.map(id => graph.nodes.get(id));
 }
 
-/*
- * Run a single propagation pass over 'graph' starting from 'state'.
- * Gates are processed in topological order; cyclic nodes use their
- * current value from 'state' as input. Returns a new
- * Map<id, 0|1|null>.
- */
 const Simulator = {
-    /* Single propagation pass. Returns a new state Map. */
+    /* Single propagation pass over 'graph'. Gates are processed in
+     * topological order; cyclic nodes use their current value from
+     * 'state'. Returns a new Map<id, 0|1|null>. */
     evaluate(graph, state) {
         const next = new Map(state);
         for (const gate of graph.gates)
