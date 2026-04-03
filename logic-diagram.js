@@ -88,31 +88,31 @@ const Parser = {
         const labels     = [];
         const rects      = [];
         let currentStage = 1;
-        const rowByStage = new Map();   /* current row counter per stage */
-        let pendingRow   = null;        /* set by 'row' hint, used once */
-    
-        const GATE_TYPES   =
-            new Set([ 'not', 'buf', 'and', 'or', 'nand', 'nor', 'xor', 'xnor' ]);
+        const rowByStage = new Map(); /* current row counter per stage */
+        let pendingRow   = null;      /* set by 'row' hint, used once */
+
+        const GATE_TYPES =
+          new Set([ 'not', 'buf', 'and', 'or', 'nand', 'nor', 'xor', 'xnor' ]);
         const VALID_STATES = new Set([ '0', '1', 'true', 'false' ]);
         const lines        = text.split('\n');
         for (const raw of lines) {
             const line = raw.trim();
             if (!line || line.startsWith('#'))
                 continue;
-    
+
             const tokens = tokenizeLine(line);
             const kw     = tokens[0].toLowerCase();
-    
+
             if (kw === 'stage') {
                 const n = parseInt(tokens[1], 10);
                 if (isNaN(n))
                     throw new Error('Invalid stage number: ' + tokens[1]);
                 currentStage = n;
                 rowByStage.delete(n);
-                pendingRow   = null;
+                pendingRow = null;
                 continue;
             }
-    
+
             if (kw === 'row') {
                 const n = parseFloat(tokens[1]);
                 if (isNaN(n))
@@ -120,12 +120,12 @@ const Parser = {
                 pendingRow = n;
                 continue;
             }
-    
+
             if (kw === 'input') {
                 const id  = tokens[1];
                 let init  = 0;
                 let label = id;
-    
+
                 if (tokens.length === 2) {
                     /* input <id> */
                 } else if (tokens.length === 3 || tokens.length === 4) {
@@ -139,25 +139,30 @@ const Parser = {
                 } else {
                     throw new Error('Invalid input declaration: ' + line);
                 }
-    
-                const inputRow = pendingRow !== null
-                    ? pendingRow
-                    : (rowByStage.get(0) ?? 0);
+
+                const inputRow =
+                  pendingRow !== null ? pendingRow : (rowByStage.get(0) ?? 0);
                 pendingRow = null;
                 rowByStage.set(0, inputRow + 1);
                 const node = {
-                    id, type : 'input', ins : [], label, init,
-                    stage : 0, row : inputRow
+                    id,
+                    type : 'input',
+                    ins : [],
+                    label,
+                    init,
+                    stage : 0,
+                    row : inputRow
                 };
                 nodes.set(id, node);
                 inputs.push(node);
                 continue;
             }
-    
+
             if (kw === 'output') {
                 const id = tokens[1];
                 if (!nodes.has(id))
-                    throw new Error('Undefined node referenced in output: ' + id);
+                    throw new Error('Undefined node referenced in output: ' +
+                                    id);
                 const label = tokens[2] ? unquote(tokens[2]) : id;
                 const node  = {
                     id,
@@ -169,7 +174,7 @@ const Parser = {
                 outputs.push(node);
                 continue;
             }
-    
+
             if (kw === 'rect') {
                 if (tokens.length !== 5)
                     throw new Error('Invalid rect declaration: ' + line);
@@ -184,7 +189,7 @@ const Parser = {
                 rects.push({ s1, r1, s2, r2 });
                 continue;
             }
-    
+
             if (kw === 'label') {
                 if (tokens.length !== 4)
                     throw new Error('Invalid label declaration: ' + line);
@@ -198,7 +203,7 @@ const Parser = {
                 labels.push({ text, stage, row });
                 continue;
             }
-    
+
             if (kw === 'wire') {
                 if (tokens.length !== 5)
                     throw new Error('Invalid wire declaration: ' + line);
@@ -211,38 +216,47 @@ const Parser = {
                 if (isNaN(row))
                     throw new Error('Invalid wire row: ' + tokens[4]);
                 const node = {
-                    id, type : 'wire', ins : [ src ], label : id, stage, row
+                    id,
+                    type : 'wire',
+                    ins : [ src ],
+                    label : id,
+                    stage,
+                    row
                 };
                 nodes.set(id, node);
                 gates.push(node);
                 continue;
             }
-    
+
             if (GATE_TYPES.has(kw)) {
-                const id  = tokens[1];
-                const ins = tokens.slice(2);
+                const id      = tokens[1];
+                const ins     = tokens.slice(2);
                 const gateRow = pendingRow !== null
-                    ? pendingRow
-                    : (rowByStage.get(currentStage) ?? 0);
-                pendingRow = null;
+                                  ? pendingRow
+                                  : (rowByStage.get(currentStage) ?? 0);
+                pendingRow    = null;
                 rowByStage.set(currentStage, gateRow + 1);
                 const node = {
-                    id, type : kw, ins, label : id,
-                    stage : currentStage, row : gateRow
+                    id,
+                    type : kw,
+                    ins,
+                    label : id,
+                    stage : currentStage,
+                    row : gateRow
                 };
                 nodes.set(id, node);
                 gates.push(node);
                 continue;
             }
-    
+
             throw new Error('Unknown gate type: ' + tokens[0]);
         }
-    
+
         for (const gate of gates)
             for (const inp of gate.ins)
                 if (!nodes.has(inp))
                     throw new Error('Undefined node referenced: ' + inp);
-    
+
         return { nodes, inputs, outputs, gates, labels, rects };
     },
 };
@@ -253,14 +267,14 @@ LogicDiag._parse = Parser.parse.bind(Parser);
  * Layout
  * ================================================================ */
 
-const GATE_W      = 60;
-const GATE_H      = 40;
-const COL_SPACING = 140;
-const ROW_SPACING = 70;
-const PADDING     = 50;
+const GATE_W         = 60;
+const GATE_H         = 40;
+const COL_SPACING    = 140;
+const ROW_SPACING    = 70;
+const PADDING        = 50;
 const OUT_DOT_OFFSET = 0.35 * COL_SPACING; /* gate centre to output dot */
 /* Space from the last gate centre to the SVG right edge. */
-const OUT_TAIL    = OUT_DOT_OFFSET + 8 + 80 + 25;
+const OUT_TAIL = OUT_DOT_OFFSET + 8 + 80 + 25;
 
 /* Convert a (stage, row) grid position to SVG {x, y} coordinates. */
 function stageRowToXY(stage, row, minRow) {
@@ -286,13 +300,15 @@ function layout(graph) {
     /* Find the row range used across all nodes. */
     let minRow = 0, maxRow = 0;
     for (const n of [...graph.inputs, ...graph.gates, ...graph.labels]) {
-        if (n.row < minRow) minRow = n.row;
-        if (n.row > maxRow) maxRow = n.row;
+        if (n.row < minRow)
+            minRow = n.row;
+        if (n.row > maxRow)
+            maxRow = n.row;
     }
 
     const canvasHeight = (maxRow - minRow) * ROW_SPACING + 2 * PADDING;
-    const cx_max      = PADDING + GATE_W / 2 + maxGateStage * COL_SPACING;
-    const canvasWidth = cx_max + OUT_TAIL;
+    const cx_max       = PADDING + GATE_W / 2 + maxGateStage * COL_SPACING;
+    const canvasWidth  = cx_max + OUT_TAIL;
 
     const pos = new Map();
 
@@ -486,8 +502,8 @@ LogicDiag._checkStability = checkStability;
 const PIN_LEFT     = 20; /* centre to input pin x */
 const PIN_RIGHT    = 20; /* centre to output pin x */
 const HALF_HEIGHT  = 13; /* half-height of gate body */
-const PIN_OFFSET_Y =  8; /* y-offset of top/bottom input pins */
-const BUBBLE_R     =  4; /* invert bubble radius */
+const PIN_OFFSET_Y = 8;  /* y-offset of top/bottom input pins */
+const BUBBLE_R     = 4;  /* invert bubble radius */
 
 /* Signal state -> CSS color string */
 const COLOR_HIGH    = '#22c55e'; /* bright green */
@@ -520,76 +536,90 @@ function gateShape(type, cx, cy) {
 
     switch (type) {
         case 'buf':
-            return `<polygon points="${cx - PIN_LEFT},${cy - HALF_HEIGHT} ${cx - PIN_LEFT},${
-              cy + HALF_HEIGHT} ${cx + PIN_RIGHT},${cy}" ${sk}/>`;
+            return `<polygon points="${cx - PIN_LEFT},${cy - HALF_HEIGHT} ${
+              cx -
+              PIN_LEFT},${cy + HALF_HEIGHT} ${cx + PIN_RIGHT},${cy}" ${sk}/>`;
 
         case 'not':
-            /* Triangle tip at cx+PIN_RIGHT-2*BUBBLE_R so bubble right edge = cx+PIN_RIGHT */
-            return (`<polygon points="${cx - PIN_LEFT},${cy - HALF_HEIGHT} ${cx - PIN_LEFT},${
-                      cy + HALF_HEIGHT} ${cx + PIN_RIGHT - BUBBLE_R * 2},${cy}" ${sk}/>` +
-                    `<circle cx="${cx + PIN_RIGHT - BUBBLE_R}" cy="${cy}" r="${BUBBLE_R}" ${
-                      sk}/>`);
+            /* Triangle tip at cx+PIN_RIGHT-2*BUBBLE_R so bubble right edge =
+             * cx+PIN_RIGHT */
+            return (`<polygon points="${cx - PIN_LEFT},${cy - HALF_HEIGHT} ${
+                      cx - PIN_LEFT},${cy + HALF_HEIGHT} ${
+                      cx + PIN_RIGHT - BUBBLE_R * 2},${cy}" ${sk}/>` +
+                    `<circle cx="${cx + PIN_RIGHT - BUBBLE_R}" cy="${cy}" r="${
+                      BUBBLE_R}" ${sk}/>`);
 
         case 'and':
             /* D-shape: flat left side, two quadratic beziers on the right */
-            return (`<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT} H${cx - 4}` +
-                    ` Q${cx + PIN_RIGHT},${cy - HALF_HEIGHT} ${cx + PIN_RIGHT},${cy}` +
-                    ` Q${cx + PIN_RIGHT},${cy + HALF_HEIGHT} ${cx - 4},${cy + HALF_HEIGHT}` +
-                    ` H${cx - PIN_LEFT} Z" ${sk}/>`);
+            return (
+              `<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT} H${cx - 4}` +
+              ` Q${cx + PIN_RIGHT},${cy - HALF_HEIGHT} ${cx + PIN_RIGHT},${
+                cy}` +
+              ` Q${cx + PIN_RIGHT},${cy + HALF_HEIGHT} ${cx - 4},${
+                cy + HALF_HEIGHT}` +
+              ` H${cx - PIN_LEFT} Z" ${sk}/>`);
 
         case 'nand': {
             /* D-shape body ending before bubble */
-            const bx = cx + PIN_RIGHT - BUBBLE_R * 2; /* body right edge = cx+12 */
-            return (`<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT} H${cx - 4}` +
-                    ` Q${bx},${cy - HALF_HEIGHT} ${bx},${cy}` +
-                    ` Q${bx},${cy + HALF_HEIGHT} ${cx - 4},${cy + HALF_HEIGHT}` +
-                    ` H${cx - PIN_LEFT} Z" ${sk}/>` +
-                    `<circle cx="${cx + PIN_RIGHT - BUBBLE_R}" cy="${cy}" r="${BUBBLE_R}" ${
-                      sk}/>`);
+            const bx =
+              cx + PIN_RIGHT - BUBBLE_R * 2; /* body right edge = cx+12 */
+            return (
+              `<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT} H${cx - 4}` +
+              ` Q${bx},${cy - HALF_HEIGHT} ${bx},${cy}` +
+              ` Q${bx},${cy + HALF_HEIGHT} ${cx - 4},${cy + HALF_HEIGHT}` +
+              ` H${cx - PIN_LEFT} Z" ${sk}/>` +
+              `<circle cx="${cx + PIN_RIGHT - BUBBLE_R}" cy="${cy}" r="${
+                BUBBLE_R}" ${sk}/>`);
         }
 
         case 'or':
             /* Curved back, pointed front */
-            return (
-              `<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT}` +
-              ` Q${cx - PIN_LEFT + 12},${cy - HALF_HEIGHT} ${cx + PIN_RIGHT},${cy}` +
-              ` Q${cx - PIN_LEFT + 12},${cy + HALF_HEIGHT} ${cx - PIN_LEFT},${cy + HALF_HEIGHT}` +
-              ` Q${cx - PIN_LEFT + 7},${cy} ${cx - PIN_LEFT},${cy - HALF_HEIGHT} Z" ${sk}/>`);
+            return (`<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT}` +
+                    ` Q${cx - PIN_LEFT + 12},${cy - HALF_HEIGHT} ${
+                      cx + PIN_RIGHT},${cy}` +
+                    ` Q${cx - PIN_LEFT + 12},${cy + HALF_HEIGHT} ${
+                      cx - PIN_LEFT},${cy + HALF_HEIGHT}` +
+                    ` Q${cx - PIN_LEFT + 7},${cy} ${cx - PIN_LEFT},${
+                      cy - HALF_HEIGHT} Z" ${sk}/>`);
 
         case 'nor': {
             const bx = cx + PIN_RIGHT - BUBBLE_R * 2;
-            return (
-              `<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT}` +
-              ` Q${cx - PIN_LEFT + 12},${cy - HALF_HEIGHT} ${bx},${cy}` +
-              ` Q${cx - PIN_LEFT + 12},${cy + HALF_HEIGHT} ${cx - PIN_LEFT},${cy + HALF_HEIGHT}` +
-              ` Q${cx - PIN_LEFT + 7},${cy} ${cx - PIN_LEFT},${cy - HALF_HEIGHT} Z" ${sk}/>` +
-              `<circle cx="${cx + PIN_RIGHT - BUBBLE_R}" cy="${cy}" r="${BUBBLE_R}" ${
-                sk}/>`);
+            return (`<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT}` +
+                    ` Q${cx - PIN_LEFT + 12},${cy - HALF_HEIGHT} ${bx},${cy}` +
+                    ` Q${cx - PIN_LEFT + 12},${cy + HALF_HEIGHT} ${
+                      cx - PIN_LEFT},${cy + HALF_HEIGHT}` +
+                    ` Q${cx - PIN_LEFT + 7},${cy} ${cx - PIN_LEFT},${
+                      cy - HALF_HEIGHT} Z" ${sk}/>` +
+                    `<circle cx="${cx + PIN_RIGHT - BUBBLE_R}" cy="${cy}" r="${
+                      BUBBLE_R}" ${sk}/>`);
         }
 
         case 'xor':
             /* OR body + extra arc on left */
-            return (
-              `<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT}` +
-              ` Q${cx - PIN_LEFT + 12},${cy - HALF_HEIGHT} ${cx + PIN_RIGHT},${cy}` +
-              ` Q${cx - PIN_LEFT + 12},${cy + HALF_HEIGHT} ${cx - PIN_LEFT},${cy + HALF_HEIGHT}` +
-              ` Q${cx - PIN_LEFT + 7},${cy} ${cx - PIN_LEFT},${cy - HALF_HEIGHT} Z" ${sk}/>` +
-              `<path d="M${cx - PIN_LEFT - 5},${cy - HALF_HEIGHT}` +
-              ` Q${cx - PIN_LEFT + 2},${cy} ${cx - PIN_LEFT - 5},${
-                cy + HALF_HEIGHT}" fill="none" ${sk}/>`);
+            return (`<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT}` +
+                    ` Q${cx - PIN_LEFT + 12},${cy - HALF_HEIGHT} ${
+                      cx + PIN_RIGHT},${cy}` +
+                    ` Q${cx - PIN_LEFT + 12},${cy + HALF_HEIGHT} ${
+                      cx - PIN_LEFT},${cy + HALF_HEIGHT}` +
+                    ` Q${cx - PIN_LEFT + 7},${cy} ${cx - PIN_LEFT},${
+                      cy - HALF_HEIGHT} Z" ${sk}/>` +
+                    `<path d="M${cx - PIN_LEFT - 5},${cy - HALF_HEIGHT}` +
+                    ` Q${cx - PIN_LEFT + 2},${cy} ${cx - PIN_LEFT - 5},${
+                      cy + HALF_HEIGHT}" fill="none" ${sk}/>`);
 
         case 'xnor': {
             const bx = cx + PIN_RIGHT - BUBBLE_R * 2;
-            return (
-              `<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT}` +
-              ` Q${cx - PIN_LEFT + 12},${cy - HALF_HEIGHT} ${bx},${cy}` +
-              ` Q${cx - PIN_LEFT + 12},${cy + HALF_HEIGHT} ${cx - PIN_LEFT},${cy + HALF_HEIGHT}` +
-              ` Q${cx - PIN_LEFT + 7},${cy} ${cx - PIN_LEFT},${cy - HALF_HEIGHT} Z" ${sk}/>` +
-              `<path d="M${cx - PIN_LEFT - 5},${cy - HALF_HEIGHT}` +
-              ` Q${cx - PIN_LEFT + 2},${cy} ${cx - PIN_LEFT - 5},${
-                cy + HALF_HEIGHT}" fill="none" ${sk}/>` +
-              `<circle cx="${cx + PIN_RIGHT - BUBBLE_R}" cy="${cy}" r="${BUBBLE_R}" ${
-                sk}/>`);
+            return (`<path d="M${cx - PIN_LEFT},${cy - HALF_HEIGHT}` +
+                    ` Q${cx - PIN_LEFT + 12},${cy - HALF_HEIGHT} ${bx},${cy}` +
+                    ` Q${cx - PIN_LEFT + 12},${cy + HALF_HEIGHT} ${
+                      cx - PIN_LEFT},${cy + HALF_HEIGHT}` +
+                    ` Q${cx - PIN_LEFT + 7},${cy} ${cx - PIN_LEFT},${
+                      cy - HALF_HEIGHT} Z" ${sk}/>` +
+                    `<path d="M${cx - PIN_LEFT - 5},${cy - HALF_HEIGHT}` +
+                    ` Q${cx - PIN_LEFT + 2},${cy} ${cx - PIN_LEFT - 5},${
+                      cy + HALF_HEIGHT}" fill="none" ${sk}/>` +
+                    `<circle cx="${cx + PIN_RIGHT - BUBBLE_R}" cy="${cy}" r="${
+                      BUBBLE_R}" ${sk}/>`);
         }
 
         default:
@@ -628,36 +658,35 @@ function inPins(type, cx, cy) {
  */
 function renderDebugGrid(lo) {
     const { width, height, minRow } = lo;
-    const parts = [];
+    const parts                     = [];
 
     /* Vertical lines per stage increment */
-    const stageMin = Math.ceil(
-        (0 - PADDING - GATE_W / 2) / COL_SPACING * 4) / 4;
-    const stageMax = Math.floor(
-        (width - PADDING - GATE_W / 2) / COL_SPACING * 4) / 4;
+    const stageMin =
+      Math.ceil((0 - PADDING - GATE_W / 2) / COL_SPACING * 4) / 4;
+    const stageMax =
+      Math.floor((width - PADDING - GATE_W / 2) / COL_SPACING * 4) / 4;
     const stageSteps = Math.round((stageMax - stageMin) / 0.25);
     for (let i = 0; i <= stageSteps; i++) {
-        const s      = stageMin + i * 0.25;
-        const x      = PADDING + GATE_W / 2 + s * COL_SPACING;
-        const major  = Math.abs(Math.round(s) - s) < 0.01;
-        parts.push(
-            `<line x1="${x}" y1="0" x2="${x}" y2="${height}"` +
-            ` stroke="#aaa" stroke-width="${major ? 0.8 : 0.3}"` +
-            ` stroke-dasharray="${major ? '5,4' : '2,5'}"/>`);
+        const s     = stageMin + i * 0.25;
+        const x     = PADDING + GATE_W / 2 + s * COL_SPACING;
+        const major = Math.abs(Math.round(s) - s) < 0.01;
+        parts.push(`<line x1="${x}" y1="0" x2="${x}" y2="${height}"` +
+                   ` stroke="#aaa" stroke-width="${major ? 0.8 : 0.3}"` +
+                   ` stroke-dasharray="${major ? '5,4' : '2,5'}"/>`);
     }
 
     /* Horizontal lines per row increment */
     const rowStart = Math.ceil((0 - PADDING) / ROW_SPACING * 4) / 4 + minRow;
-    const rowEnd   = Math.floor((height - PADDING) / ROW_SPACING * 4) / 4 + minRow;
+    const rowEnd =
+      Math.floor((height - PADDING) / ROW_SPACING * 4) / 4 + minRow;
     const rowSteps = Math.round((rowEnd - rowStart) / 0.25);
     for (let i = 0; i <= rowSteps; i++) {
         const r     = rowStart + i * 0.25;
         const y     = PADDING + (r - minRow) * ROW_SPACING;
         const major = Math.abs(Math.round(r) - r) < 0.01;
-        parts.push(
-            `<line x1="0" y1="${y}" x2="${width}" y2="${y}"` +
-            ` stroke="#aaa" stroke-width="${major ? 0.8 : 0.3}"` +
-            ` stroke-dasharray="${major ? '5,4' : '2,5'}"/>`);
+        parts.push(`<line x1="0" y1="${y}" x2="${width}" y2="${y}"` +
+                   ` stroke="#aaa" stroke-width="${major ? 0.8 : 0.3}"` +
+                   ` stroke-dasharray="${major ? '5,4' : '2,5'}"/>`);
     }
 
     return parts.join('\n');
@@ -708,14 +737,14 @@ function renderWires(graph, lo, simState) {
                 /* Backward (feedback) wire: horizontal to src+0.25 stage,
                  * short vertical, diagonal to dst-0.25 stage, short
                  * vertical, horizontal to pin. */
-                const exitX   = sPos.x + 0.25 * COL_SPACING;
+                const exitX    = sPos.x + 0.25 * COL_SPACING;
                 const diagEndX = tPos.x - 0.25 * COL_SPACING;
-                const topStub = 15;
-                const botStub = 15;
-                const dir     = ty <= sy ? -1 : 1;
-                const preY    = sy + dir * topStub;
-                const postY   = ty - dir * botStub;
-                d = `M${sx},${sy} H${exitX} V${preY}` +
+                const topStub  = 15;
+                const botStub  = 15;
+                const dir      = ty <= sy ? -1 : 1;
+                const preY     = sy + dir * topStub;
+                const postY    = ty - dir * botStub;
+                d              = `M${sx},${sy} H${exitX} V${preY}` +
                     ` L${diagEndX},${postY} V${ty} H${tx}`;
             }
 
@@ -738,8 +767,9 @@ function renderWires(graph, lo, simState) {
         const color = sigColor(simState.get(srcId) ?? null);
         const sOut  = outPin(srcNode.type, srcPos.x, srcPos.y);
         /* The output dot is rendered at srcPos.x + 0.5*COL_SPACING */
-        parts.push(`<path d="M${sOut.x},${sOut.y} H${srcPos.x + OUT_DOT_OFFSET}"` +
-                   ` fill="none" stroke="${color}" stroke-width="2"/>`);
+        parts.push(
+          `<path d="M${sOut.x},${sOut.y} H${srcPos.x + OUT_DOT_OFFSET}"` +
+          ` fill="none" stroke="${color}" stroke-width="2"/>`);
     }
 
     return parts.join('\n');
@@ -759,7 +789,7 @@ function renderInputs(graph, pos, simState) {
 
         const val   = simState.get(inp.id) ?? 0;
         const color = sigColor(val);
-        const bx = p.x - 12; /* left edge of button (centered at stage) */
+        const bx    = p.x - 12; /* left edge of button (centered at stage) */
 
         /* Label to the left of the button */
         parts.push(`<text x="${bx - 8}" y="${p.y + 5}"` +
@@ -806,7 +836,7 @@ function renderOutputs(graph, lo, simState) {
 
         const color = sigColor(simState.get(srcId) ?? null);
         const op    = outPin(srcNode.type, srcPos.x, srcPos.y);
-        const dotX = srcPos.x + OUT_DOT_OFFSET;
+        const dotX  = srcPos.x + OUT_DOT_OFFSET;
         parts.push(`<circle cx="${dotX}" cy="${op.y}" r="4"` +
                    ` fill="${color}"/>`);
         parts.push(`<text x="${dotX + 8}" y="${op.y + 5}"` +
@@ -819,14 +849,15 @@ function renderOutputs(graph, lo, simState) {
 /* Render background rectangles placed with the 'rect' instruction. */
 function renderRects(graph, lo) {
     const { minRow } = lo;
-    const parts = [];
+    const parts      = [];
     for (const r of graph.rects) {
         const { x : x1, y : y1 } = stageRowToXY(r.s1, r.r1, minRow);
         const { x : x2, y : y2 } = stageRowToXY(r.s2, r.r2, minRow);
-        parts.push(`<rect x="${Math.min(x1, x2)}" y="${Math.min(y1, y2)}"` +
-                   ` width="${Math.abs(x2 - x1)}" height="${Math.abs(y2 - y1)}"` +
-                   ` rx="6" fill="#f0f4ff" stroke="#c0cce8"` +
-                   ` stroke-width="1" stroke-dasharray="4,3"/>`);
+        parts.push(
+          `<rect x="${Math.min(x1, x2)}" y="${Math.min(y1, y2)}"` +
+          ` width="${Math.abs(x2 - x1)}" height="${Math.abs(y2 - y1)}"` +
+          ` rx="6" fill="#f0f4ff" stroke="#c0cce8"` +
+          ` stroke-width="1" stroke-dasharray="4,3"/>`);
     }
     return parts.join('\n');
 }
@@ -834,7 +865,7 @@ function renderRects(graph, lo) {
 /* Render free-floating text labels placed with the 'label' instruction. */
 function renderLabels(graph, lo) {
     const { minRow } = lo;
-    const parts = [];
+    const parts      = [];
     for (const lbl of graph.labels) {
         const { x, y } = stageRowToXY(lbl.stage, lbl.row, minRow);
         parts.push(`<text x="${x}" y="${y}" font-family="monospace"` +
@@ -1006,8 +1037,8 @@ if (typeof document !== 'undefined') {
           document.querySelectorAll('script[type="text/logicdiag"]');
         scripts.forEach(function(script) {
             try {
-                const svgEl = renderDiagram(script.textContent);
-                const wrap = document.createElement('div');
+                const svgEl          = renderDiagram(script.textContent);
+                const wrap           = document.createElement('div');
                 wrap.style.textAlign = 'center';
                 wrap.appendChild(svgEl);
                 script.parentNode.insertBefore(wrap, script.nextSibling);
