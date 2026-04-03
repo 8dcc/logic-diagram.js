@@ -926,103 +926,91 @@ LogicDiag._render = Renderer.render.bind(Renderer);
  * Diagram Registry
  * ================================================================ */
 
-/* Map from SVG DOM element -> { graph, layout, state, timerId } */
-const _diagrams = new Map();
+const Registry = {
+    _diagrams : new Map(),
 
-/*
- * Re-simulate the circuit and update the SVG innerHTML.
- * Schedules a tick if the circuit is oscillating.
- */
-function redraw(entry) {
-    if (entry.timerId) {
-        clearTimeout(entry.timerId);
-        entry.timerId = null;
-    }
+    redraw(entry) {
+        if (entry.timerId) {
+            clearTimeout(entry.timerId);
+            entry.timerId = null;
+        }
+        const { state : newState, stable } =
+          Simulator.stabilize(entry.graph, entry.state);
+        entry.state = newState;
 
-    const { state : newState, stable } =
-      Simulator.stabilize(entry.graph, entry.state);
-    entry.state = newState;
+        const inner = [
+            renderRects(entry.graph, entry.layout),
+            LogicDiag.debug ? renderDebugGrid(entry.layout) : '',
+            renderWires(entry.graph, entry.layout, newState),
+            ...entry.graph.gates.map(g => {
+                const p = entry.layout.pos.get(g.id);
+                return p ? gateShape(g.type, p.x, p.y) : '';
+            }),
+            renderInputs(entry.graph, entry.layout.pos, newState),
+            renderOutputs(entry.graph, entry.layout, newState),
+            renderLabels(entry.graph, entry.layout),
+        ].join('\n');
+        entry.svgEl.innerHTML = inner;
 
-    const inner = [
-        renderRects(entry.graph, entry.layout),
-        LogicDiag.debug ? renderDebugGrid(entry.layout) : '',
-        renderWires(entry.graph, entry.layout, newState),
-        ...entry.graph.gates.map(g => {
-            const p = entry.layout.pos.get(g.id);
-            return p ? gateShape(g.type, p.x, p.y) : '';
-        }),
-        renderInputs(entry.graph, entry.layout.pos, newState),
-        renderOutputs(entry.graph, entry.layout, newState),
-        renderLabels(entry.graph, entry.layout),
-    ].join('\n');
-    entry.svgEl.innerHTML = inner;
+        if (!stable)
+            entry.timerId =
+              setTimeout(() => Registry.redraw(entry), LogicDiag.tickRate);
+    },
 
-    if (!stable)
-        entry.timerId = setTimeout(() => redraw(entry), LogicDiag.tickRate);
-}
+    toggle(el) {
+        const svgEl  = el.closest('svg');
+        const nodeId = el.getAttribute('data-node');
+        const entry  = Registry._diagrams.get(svgEl);
+        if (!entry || !nodeId)
+            return;
+        const cur = entry.state.get(nodeId) ?? 0;
+        entry.state.set(nodeId, cur === 1 ? 0 : 1);
+        Registry.redraw(entry);
+    },
 
-/*
- * Toggle the value of an input node and redraw the diagram.
- * 'el' is the <g class="ld-input"> element that was clicked.
- */
-LogicDiag._toggle = function(el) {
-    const svgEl  = el.closest('svg');
-    const nodeId = el.getAttribute('data-node');
-    const entry  = _diagrams.get(svgEl);
-    if (!entry || !nodeId)
-        return;
-    const cur = entry.state.get(nodeId) ?? 0;
-    entry.state.set(nodeId, cur === 1 ? 0 : 1);
-    redraw(entry);
+    renderDiagram(text) {
+        const graph  = Parser.parse(text);
+        const layout = Layout.compute(graph);
+
+        const state = new Map();
+        for (const inp of graph.inputs)
+            state.set(inp.id, inp.init);
+        for (const gate of graph.gates)
+            state.set(gate.id, null);
+
+        const { state : initState, stable } = Simulator.stabilize(graph, state);
+        const svgStr = Renderer.render(graph, layout, initState);
+
+        const tmp     = document.createElement('div');
+        tmp.innerHTML = svgStr;
+        const svgEl   = tmp.firstChild;
+
+        const entry = {
+            graph,
+            layout,
+            svgEl,
+            state : initState,
+            timerId : null,
+        };
+        Registry._diagrams.set(svgEl, entry);
+
+        if (!stable)
+            entry.timerId =
+              setTimeout(() => Registry.redraw(entry), LogicDiag.tickRate);
+
+        return svgEl;
+    },
 };
-
-/*
- * Parse, layout, simulate, and render a diagram from DSL text.
- * Returns the SVG DOM element. Registers the diagram for interactivity.
- * Only callable in a browser environment (requires document).
- */
-function renderDiagram(text) {
-    const graph  = Parser.parse(text);
-    const layout = Layout.compute(graph);
-
-    const state = new Map();
-    for (const inp of graph.inputs)
-        state.set(inp.id, inp.init);
-    for (const gate of graph.gates)
-        state.set(gate.id, null);
-
-    const { state : initState, stable } = Simulator.stabilize(graph, state);
-
-    const svgStr = Renderer.render(graph, layout, initState);
-
-    const tmp     = document.createElement('div');
-    tmp.innerHTML = svgStr;
-    const svgEl   = tmp.firstChild;
-
-    const entry = {
-        graph,
-        layout,
-        svgEl,
-        state : initState,
-        timerId : null,
-    };
-    _diagrams.set(svgEl, entry);
-
-    if (!stable) {
-        entry.timerId = setTimeout(() => redraw(entry), LogicDiag.tickRate);
-    }
-
-    return svgEl;
-}
 
 /* ================================================================
  * Export
  * ================================================================ */
 
+LogicDiag._toggle = Registry.toggle.bind(Registry);
+
 global.LogicDiag = LogicDiag;
-if (typeof module !== 'undefined' && module.exports) {
+if (typeof module !== 'undefined' && module.exports)
     module.exports = LogicDiag;
-}
 
 if (typeof document !== 'undefined') {
     document.addEventListener('DOMContentLoaded', function() {
@@ -1030,8 +1018,8 @@ if (typeof document !== 'undefined') {
           document.querySelectorAll('script[type="text/logicdiag"]');
         scripts.forEach(function(script) {
             try {
-                const svgEl          = renderDiagram(script.textContent);
-                const wrap           = document.createElement('div');
+                const svgEl = Registry.renderDiagram(script.textContent);
+                const wrap  = document.createElement('div');
                 wrap.style.textAlign = 'center';
                 wrap.appendChild(svgEl);
                 script.parentNode.insertBefore(wrap, script.nextSibling);
