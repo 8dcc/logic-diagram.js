@@ -872,53 +872,55 @@ function renderLabels(graph, layout) {
  * layout   - layout result from Layout.compute()
  * simState - SimState (Map<id, 0|1|null>)
  */
-function render(graph, layout, simState) {
-    const { pos, width, height } = layout;
+const Renderer = {
+    render(graph, layout, simState) {
+        const { pos, width, height } = layout;
 
-    const parts = [ `<svg xmlns="http://www.w3.org/2000/svg"` +
-                    ` class="logicdiag"` +
-                    ` viewBox="0 0 ${width} ${height}"` +
-                    ` width="${width}" height="${height}"` +
-                    ` style="display:block;max-width:100%;margin:auto;">` ];
+        const parts = [ `<svg xmlns="http://www.w3.org/2000/svg"` +
+                        ` class="logicdiag"` +
+                        ` viewBox="0 0 ${width} ${height}"` +
+                        ` width="${width}" height="${height}"` +
+                        ` style="display:block;max-width:100%;margin:auto;">` ];
 
-    parts.push(renderRects(graph, layout));
+        parts.push(renderRects(graph, layout));
 
-    if (LogicDiag.debug)
-        parts.push(renderDebugGrid(layout));
+        if (LogicDiag.debug)
+            parts.push(renderDebugGrid(layout));
 
-    parts.push(renderWires(graph, layout, simState));
+        parts.push(renderWires(graph, layout, simState));
 
-    for (const gate of graph.gates) {
-        if (gate.type === 'wire')
-            continue;
-        const p = pos.get(gate.id);
-        if (!p)
-            continue;
-        parts.push(gateShape(gate.type, p.x, p.y));
-    }
-
-    if (LogicDiag.debug) {
         for (const gate of graph.gates) {
-            if (gate.type !== 'wire')
+            if (gate.type === 'wire')
                 continue;
             const p = pos.get(gate.id);
             if (!p)
                 continue;
-            const color = sigColor(simState.get(gate.id) ?? null);
-            parts.push(`<circle cx="${p.x}" cy="${p.y}" r="3"` +
-                       ` fill="${color}"/>`);
+            parts.push(gateShape(gate.type, p.x, p.y));
         }
-    }
 
-    parts.push(renderInputs(graph, pos, simState));
-    parts.push(renderOutputs(graph, layout, simState));
-    parts.push(renderLabels(graph, layout));
+        if (LogicDiag.debug) {
+            for (const gate of graph.gates) {
+                if (gate.type !== 'wire')
+                    continue;
+                const p = pos.get(gate.id);
+                if (!p)
+                    continue;
+                const color = sigColor(simState.get(gate.id) ?? null);
+                parts.push(`<circle cx="${p.x}" cy="${p.y}" r="3"` +
+                           ` fill="${color}"/>`);
+            }
+        }
 
-    parts.push('</svg>');
-    return parts.join('\n');
-}
+        parts.push(renderInputs(graph, pos, simState));
+        parts.push(renderOutputs(graph, layout, simState));
+        parts.push(renderLabels(graph, layout));
 
-LogicDiag._render = render;
+        parts.push('</svg>');
+        return parts.join('\n');
+    },
+};
+
+LogicDiag._render = Renderer.render.bind(Renderer);
 
 /* ================================================================
  * Diagram Registry
@@ -991,7 +993,7 @@ function renderDiagram(text) {
 
     const { state : initState, stable } = Simulator.stabilize(graph, state);
 
-    const svgStr = render(graph, layout, initState);
+    const svgStr = Renderer.render(graph, layout, initState);
 
     const tmp     = document.createElement('div');
     tmp.innerHTML = svgStr;
