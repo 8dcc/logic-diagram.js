@@ -81,169 +81,169 @@ function unquote(s) {
  */
 const Parser = {
     parse(text) {
-    const nodes      = new Map();
-    const inputs     = [];
-    const outputs    = [];
-    const gates      = [];
-    const labels     = [];
-    const rects      = [];
-    let currentStage = 1;
-    const rowByStage = new Map();   /* current row counter per stage */
-    let pendingRow   = null;        /* set by 'row' hint, used once */
-
-    const GATE_TYPES   =
-        new Set([ 'not', 'buf', 'and', 'or', 'nand', 'nor', 'xor', 'xnor' ]);
-    const VALID_STATES = new Set([ '0', '1', 'true', 'false' ]);
-    const lines        = text.split('\n');
-    for (const raw of lines) {
-        const line = raw.trim();
-        if (!line || line.startsWith('#'))
-            continue;
-
-        const tokens = tokenizeLine(line);
-        const kw     = tokens[0].toLowerCase();
-
-        if (kw === 'stage') {
-            const n = parseInt(tokens[1], 10);
-            if (isNaN(n))
-                throw new Error('Invalid stage number: ' + tokens[1]);
-            currentStage = n;
-            rowByStage.delete(n);
-            pendingRow   = null;
-            continue;
-        }
-
-        if (kw === 'row') {
-            const n = parseFloat(tokens[1]);
-            if (isNaN(n))
-                throw new Error('Invalid row number: ' + tokens[1]);
-            pendingRow = n;
-            continue;
-        }
-
-        if (kw === 'input') {
-            const id  = tokens[1];
-            let init  = 0;
-            let label = id;
-
-            if (tokens.length === 2) {
-                /* input <id> */
-            } else if (tokens.length === 3 || tokens.length === 4) {
-                /* input <id> <init> [<label>] */
-                if (!VALID_STATES.has(tokens[2])) {
-                    throw new Error('Invalid input state: ' + tokens[2]);
-                }
-                init = (tokens[2] === '1' || tokens[2] === 'true') ? 1 : 0;
-                if (tokens.length === 4)
-                    label = unquote(tokens[3]);
-            } else {
-                throw new Error('Invalid input declaration: ' + line);
+        const nodes      = new Map();
+        const inputs     = [];
+        const outputs    = [];
+        const gates      = [];
+        const labels     = [];
+        const rects      = [];
+        let currentStage = 1;
+        const rowByStage = new Map();   /* current row counter per stage */
+        let pendingRow   = null;        /* set by 'row' hint, used once */
+    
+        const GATE_TYPES   =
+            new Set([ 'not', 'buf', 'and', 'or', 'nand', 'nor', 'xor', 'xnor' ]);
+        const VALID_STATES = new Set([ '0', '1', 'true', 'false' ]);
+        const lines        = text.split('\n');
+        for (const raw of lines) {
+            const line = raw.trim();
+            if (!line || line.startsWith('#'))
+                continue;
+    
+            const tokens = tokenizeLine(line);
+            const kw     = tokens[0].toLowerCase();
+    
+            if (kw === 'stage') {
+                const n = parseInt(tokens[1], 10);
+                if (isNaN(n))
+                    throw new Error('Invalid stage number: ' + tokens[1]);
+                currentStage = n;
+                rowByStage.delete(n);
+                pendingRow   = null;
+                continue;
             }
-
-            const inputRow = pendingRow !== null
-                ? pendingRow
-                : (rowByStage.get(0) ?? 0);
-            pendingRow = null;
-            rowByStage.set(0, inputRow + 1);
-            const node = {
-                id, type : 'input', ins : [], label, init,
-                stage : 0, row : inputRow
-            };
-            nodes.set(id, node);
-            inputs.push(node);
-            continue;
+    
+            if (kw === 'row') {
+                const n = parseFloat(tokens[1]);
+                if (isNaN(n))
+                    throw new Error('Invalid row number: ' + tokens[1]);
+                pendingRow = n;
+                continue;
+            }
+    
+            if (kw === 'input') {
+                const id  = tokens[1];
+                let init  = 0;
+                let label = id;
+    
+                if (tokens.length === 2) {
+                    /* input <id> */
+                } else if (tokens.length === 3 || tokens.length === 4) {
+                    /* input <id> <init> [<label>] */
+                    if (!VALID_STATES.has(tokens[2])) {
+                        throw new Error('Invalid input state: ' + tokens[2]);
+                    }
+                    init = (tokens[2] === '1' || tokens[2] === 'true') ? 1 : 0;
+                    if (tokens.length === 4)
+                        label = unquote(tokens[3]);
+                } else {
+                    throw new Error('Invalid input declaration: ' + line);
+                }
+    
+                const inputRow = pendingRow !== null
+                    ? pendingRow
+                    : (rowByStage.get(0) ?? 0);
+                pendingRow = null;
+                rowByStage.set(0, inputRow + 1);
+                const node = {
+                    id, type : 'input', ins : [], label, init,
+                    stage : 0, row : inputRow
+                };
+                nodes.set(id, node);
+                inputs.push(node);
+                continue;
+            }
+    
+            if (kw === 'output') {
+                const id = tokens[1];
+                if (!nodes.has(id))
+                    throw new Error('Undefined node referenced in output: ' + id);
+                const label = tokens[2] ? unquote(tokens[2]) : id;
+                const node  = {
+                    id,
+                    type : 'output',
+                    ins : [ id ],
+                    label,
+                    stage : currentStage + 1
+                };
+                outputs.push(node);
+                continue;
+            }
+    
+            if (kw === 'rect') {
+                if (tokens.length !== 5)
+                    throw new Error('Invalid rect declaration: ' + line);
+                const s1 = parseFloat(tokens[1]);
+                const r1 = parseFloat(tokens[2]);
+                const s2 = parseFloat(tokens[3]);
+                const r2 = parseFloat(tokens[4]);
+                if (isNaN(s1) || isNaN(s2))
+                    throw new Error('Invalid rect stage: ' + line);
+                if (isNaN(r1) || isNaN(r2))
+                    throw new Error('Invalid rect row: ' + line);
+                rects.push({ s1, r1, s2, r2 });
+                continue;
+            }
+    
+            if (kw === 'label') {
+                if (tokens.length !== 4)
+                    throw new Error('Invalid label declaration: ' + line);
+                const text  = unquote(tokens[1]);
+                const stage = parseFloat(tokens[2]);
+                const row   = parseFloat(tokens[3]);
+                if (isNaN(stage))
+                    throw new Error('Invalid label stage: ' + tokens[2]);
+                if (isNaN(row))
+                    throw new Error('Invalid label row: ' + tokens[3]);
+                labels.push({ text, stage, row });
+                continue;
+            }
+    
+            if (kw === 'wire') {
+                if (tokens.length !== 5)
+                    throw new Error('Invalid wire declaration: ' + line);
+                const id    = tokens[1];
+                const src   = tokens[2];
+                const stage = parseFloat(tokens[3]);
+                const row   = parseFloat(tokens[4]);
+                if (isNaN(stage))
+                    throw new Error('Invalid wire stage: ' + tokens[3]);
+                if (isNaN(row))
+                    throw new Error('Invalid wire row: ' + tokens[4]);
+                const node = {
+                    id, type : 'wire', ins : [ src ], label : id, stage, row
+                };
+                nodes.set(id, node);
+                gates.push(node);
+                continue;
+            }
+    
+            if (GATE_TYPES.has(kw)) {
+                const id  = tokens[1];
+                const ins = tokens.slice(2);
+                const gateRow = pendingRow !== null
+                    ? pendingRow
+                    : (rowByStage.get(currentStage) ?? 0);
+                pendingRow = null;
+                rowByStage.set(currentStage, gateRow + 1);
+                const node = {
+                    id, type : kw, ins, label : id,
+                    stage : currentStage, row : gateRow
+                };
+                nodes.set(id, node);
+                gates.push(node);
+                continue;
+            }
+    
+            throw new Error('Unknown gate type: ' + tokens[0]);
         }
-
-        if (kw === 'output') {
-            const id = tokens[1];
-            if (!nodes.has(id))
-                throw new Error('Undefined node referenced in output: ' + id);
-            const label = tokens[2] ? unquote(tokens[2]) : id;
-            const node  = {
-                id,
-                type : 'output',
-                ins : [ id ],
-                label,
-                stage : currentStage + 1
-            };
-            outputs.push(node);
-            continue;
-        }
-
-        if (kw === 'rect') {
-            if (tokens.length !== 5)
-                throw new Error('Invalid rect declaration: ' + line);
-            const s1 = parseFloat(tokens[1]);
-            const r1 = parseFloat(tokens[2]);
-            const s2 = parseFloat(tokens[3]);
-            const r2 = parseFloat(tokens[4]);
-            if (isNaN(s1) || isNaN(s2))
-                throw new Error('Invalid rect stage: ' + line);
-            if (isNaN(r1) || isNaN(r2))
-                throw new Error('Invalid rect row: ' + line);
-            rects.push({ s1, r1, s2, r2 });
-            continue;
-        }
-
-        if (kw === 'label') {
-            if (tokens.length !== 4)
-                throw new Error('Invalid label declaration: ' + line);
-            const text  = unquote(tokens[1]);
-            const stage = parseFloat(tokens[2]);
-            const row   = parseFloat(tokens[3]);
-            if (isNaN(stage))
-                throw new Error('Invalid label stage: ' + tokens[2]);
-            if (isNaN(row))
-                throw new Error('Invalid label row: ' + tokens[3]);
-            labels.push({ text, stage, row });
-            continue;
-        }
-
-        if (kw === 'wire') {
-            if (tokens.length !== 5)
-                throw new Error('Invalid wire declaration: ' + line);
-            const id    = tokens[1];
-            const src   = tokens[2];
-            const stage = parseFloat(tokens[3]);
-            const row   = parseFloat(tokens[4]);
-            if (isNaN(stage))
-                throw new Error('Invalid wire stage: ' + tokens[3]);
-            if (isNaN(row))
-                throw new Error('Invalid wire row: ' + tokens[4]);
-            const node = {
-                id, type : 'wire', ins : [ src ], label : id, stage, row
-            };
-            nodes.set(id, node);
-            gates.push(node);
-            continue;
-        }
-
-        if (GATE_TYPES.has(kw)) {
-            const id  = tokens[1];
-            const ins = tokens.slice(2);
-            const gateRow = pendingRow !== null
-                ? pendingRow
-                : (rowByStage.get(currentStage) ?? 0);
-            pendingRow = null;
-            rowByStage.set(currentStage, gateRow + 1);
-            const node = {
-                id, type : kw, ins, label : id,
-                stage : currentStage, row : gateRow
-            };
-            nodes.set(id, node);
-            gates.push(node);
-            continue;
-        }
-
-        throw new Error('Unknown gate type: ' + tokens[0]);
-    }
-
-    for (const gate of gates)
-        for (const inp of gate.ins)
-            if (!nodes.has(inp))
-                throw new Error('Undefined node referenced: ' + inp);
-
-    return { nodes, inputs, outputs, gates, labels, rects };
+    
+        for (const gate of gates)
+            for (const inp of gate.ins)
+                if (!nodes.has(inp))
+                    throw new Error('Undefined node referenced: ' + inp);
+    
+        return { nodes, inputs, outputs, gates, labels, rects };
     },
 };
 
