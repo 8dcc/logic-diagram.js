@@ -63,6 +63,59 @@
     output nand_D "~Q"
   </script>
 
+  <h2>D flip-flop (rising-edge triggered)</h2>
+  <p class="tip">Change <code>D</code> while <code>CLK=0</code>, then toggle <code>CLK</code> to 1. <code>Q</code> updates on the rising edge.</p>
+
+  <script type="text/logicdiag">
+    input D
+    input CLK
+
+    stage 1
+    row 1
+    not not_CLK CLK
+    wire wire_CLK CLK 0.75 2
+
+    # D Latch 1 rectangle
+    label "Master D Latch" 2.9 -0.6
+    rect 1.3 -0.5 4.65 1.5
+
+    # D Latch 1
+    stage 2
+    row 0.5
+    not not_L1_D D
+
+    stage 3
+    nand nand_L1_A D        not_CLK
+    nand nand_L1_B not_L1_D not_CLK
+
+    stage 4
+    nand nand_L1_C nand_L1_A nand_L1_D
+    nand nand_L1_D nand_L1_C nand_L1_B
+    output nand_L1_D ~Q1
+
+    stage 5
+    wire wire_dst_CLK wire_CLK 5.25 1
+
+    # D Latch 2 rectangle
+    label "Slave D Latch" 6.9 -0.6
+    rect 5.3 -0.5 8.6 1.5
+
+    # D Latch 2
+    stage 6
+    row 0.5
+    not not_L2_D nand_L1_C
+
+    stage 7
+    nand nand_L2_A nand_L1_C wire_dst_CLK
+    nand nand_L2_B not_L2_D  wire_dst_CLK
+
+    stage 8
+    nand nand_L2_C nand_L2_A nand_L2_D
+    nand nand_L2_D nand_L2_C nand_L2_B
+    output nand_L2_C Q
+    output nand_L2_D ~Q
+  </script>
+
   <h2>Oscillator (NOT feedback loop)</h2>
   <p class="tip">This circuit oscillates — the wire color toggles at 1 tick/second.</p>
 
