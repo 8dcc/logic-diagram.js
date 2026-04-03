@@ -450,52 +450,45 @@ function topoSortGates(graph) {
  * current value from 'state' as input. Returns a new
  * Map<id, 0|1|null>.
  */
-function simulate(graph, state) {
-    const next = new Map(state);
-    for (const gate of graph.gates)
-        if (!next.has(gate.id))
-            next.set(gate.id, null);
+const Simulator = {
+    /* Single propagation pass. Returns a new state Map. */
+    evaluate(graph, state) {
+        const next = new Map(state);
+        for (const gate of graph.gates)
+            if (!next.has(gate.id))
+                next.set(gate.id, null);
 
-    for (const gate of topoSortGates(graph)) {
-        const inputs = gate.ins.map(id => next.get(id) ?? null);
-        next.set(gate.id, evalGate(gate.type, inputs));
-    }
-
-    return next;
-}
-
-LogicDiag._simulate = simulate;
-
-/*
- * Run simulate() repeatedly until two consecutive passes produce
- * identical state (stable) or 'LogicDiag.stabilityChecks' passes are
- * exhausted (oscillating). Compares all node states, not just outputs.
- * Returns { state: Map<id, 0|1|null>, stable: bool }.
- */
-function checkStability(graph, state) {
-    const first_simulation = simulate(graph, state);
-
-    let prev = first_simulation;
-    for (let i = 1; i < LogicDiag.stabilityChecks; i++) {
-        const next = simulate(graph, prev);
-        let stable = true;
-        for (const [id, val] of next) {
-            if (prev.get(id) !== val) {
-                stable = false;
-                break;
-            }
+        for (const gate of topoSortGates(graph)) {
+            const inputs = gate.ins.map(id => next.get(id) ?? null);
+            next.set(gate.id, evalGate(gate.type, inputs));
         }
 
-        if (stable)
-            return { state : next, stable : true };
+        return next;
+    },
 
-        prev = next;
-    }
+    /* Runs evaluate() until stable or oscillation limit reached. */
+    stabilize(graph, state) {
+        const first = Simulator.evaluate(graph, state);
+        let prev    = first;
+        for (let i = 1; i < LogicDiag.stabilityChecks; i++) {
+            const next = Simulator.evaluate(graph, prev);
+            let stable = true;
+            for (const [id, val] of next) {
+                if (prev.get(id) !== val) {
+                    stable = false;
+                    break;
+                }
+            }
+            if (stable)
+                return { state : next, stable : true };
+            prev = next;
+        }
+        return { state : first, stable : false };
+    },
+};
 
-    return { state : first_simulation, stable : false };
-}
-
-LogicDiag._checkStability = checkStability;
+LogicDiag._simulate       = Simulator.evaluate.bind(Simulator);
+LogicDiag._checkStability = Simulator.stabilize.bind(Simulator);
 
 /* ================================================================
  * SVG Renderer
@@ -949,7 +942,7 @@ function redraw(entry) {
     }
 
     const { state : newState, stable } =
-      checkStability(entry.graph, entry.state);
+      Simulator.stabilize(entry.graph, entry.state);
     entry.state = newState;
 
     const inner = [
@@ -1000,7 +993,7 @@ function renderDiagram(text) {
     for (const gate of graph.gates)
         state.set(gate.id, null);
 
-    const { state : initState, stable } = checkStability(graph, state);
+    const { state : initState, stable } = Simulator.stabilize(graph, state);
 
     const svgStr = render(graph, layout, initState);
 
