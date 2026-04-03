@@ -308,8 +308,8 @@ const Layout = {
         }
 
         const canvasHeight = (maxRow - minRow) * ROW_SPACING + 2 * PADDING;
-        const cx_max       = PADDING + GATE_W / 2 + maxGateStage * COL_SPACING;
-        const canvasWidth  = cx_max + OUT_TAIL;
+        const canvasWidth =
+          stageRowToXY(maxGateStage, minRow, minRow).x + OUT_TAIL;
 
         const pos = new Map();
 
@@ -695,10 +695,10 @@ function renderWires(graph, layout, simState) {
     const parts   = [];
 
     for (const node of [...graph.inputs, ...graph.gates]) {
-        const tPos = pos.get(node.id);
-        if (!tPos)
+        const dstPos = pos.get(node.id);
+        if (!dstPos)
             continue;
-        const pins = inPins(node.type, tPos.x, tPos.y);
+        const pins = inPins(node.type, dstPos.x, dstPos.y);
 
         node.ins.forEach((srcId, i) => {
             const srcNode =
@@ -706,15 +706,15 @@ function renderWires(graph, layout, simState) {
             if (!srcNode)
                 return;
 
-            const sPos = pos.get(srcId);
-            if (!sPos)
+            const srcPos = pos.get(srcId);
+            if (!srcPos)
                 return;
 
-            const color = sigColor(simState.get(srcId) ?? null);
-            const pin   = pins[i] || pins[0];
-            const sOut  = outPin(srcNode.type, sPos.x, sPos.y);
+            const color  = sigColor(simState.get(srcId) ?? null);
+            const pin    = pins[i] || pins[0];
+            const srcPin = outPin(srcNode.type, srcPos.x, srcPos.y);
             const tx = pin.x, ty = pin.y;
-            const sx = sOut.x, sy = sOut.y;
+            const sx = srcPin.x, sy = srcPin.y;
 
             let d;
             if (sx < tx - 5) {
@@ -728,8 +728,8 @@ function renderWires(graph, layout, simState) {
                 /* Backward (feedback) wire: horizontal to src+0.25 stage,
                  * short vertical, diagonal to dst-0.25 stage, short
                  * vertical, horizontal to pin. */
-                const exitX    = sPos.x + 0.25 * COL_SPACING;
-                const diagEndX = tPos.x - 0.25 * COL_SPACING;
+                const exitX    = srcPos.x + 0.25 * COL_SPACING;
+                const diagEndX = dstPos.x - 0.25 * COL_SPACING;
                 const topStub  = 15;
                 const botStub  = 15;
                 const dir      = ty <= sy ? -1 : 1;
