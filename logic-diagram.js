@@ -287,7 +287,7 @@ function stageRowToXY(stage, row, minRow) {
 /*
  * Assign center {x, y} coordinates to every node in 'graph'.
  * Returns { pos: Map<id, {x,y}>, width: number, height: number,
- *           maxStage: number }.
+ *           minRow: number, maxStage: number }.
  */
 const Layout = {
     compute(graph) {
