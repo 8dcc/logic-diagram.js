@@ -37,9 +37,6 @@ const LogicDiag = {
  * Parser
  * ================================================================ */
 
-const GATE_TYPES =
-  new Set([ 'not', 'buf', 'and', 'or', 'nand', 'nor', 'xor', 'xnor' ]);
-
 /* Split a DSL line into tokens, respecting quoted strings. */
 function tokenizeLine(line) {
     const tokens = [];
@@ -82,7 +79,8 @@ function unquote(s) {
  * Parse a DSL string and return a Graph object:
  *   { nodes: Map, inputs: Node[], outputs: Node[], gates: Node[] }
  */
-function parse(text) {
+const Parser = {
+    parse(text) {
     const nodes      = new Map();
     const inputs     = [];
     const outputs    = [];
@@ -93,6 +91,8 @@ function parse(text) {
     const rowByStage = new Map();   /* current row counter per stage */
     let pendingRow   = null;        /* set by 'row' hint, used once */
 
+    const GATE_TYPES   =
+        new Set([ 'not', 'buf', 'and', 'or', 'nand', 'nor', 'xor', 'xnor' ]);
     const VALID_STATES = new Set([ '0', '1', 'true', 'false' ]);
     const lines        = text.split('\n');
     for (const raw of lines) {
@@ -244,9 +244,10 @@ function parse(text) {
                 throw new Error('Undefined node referenced: ' + inp);
 
     return { nodes, inputs, outputs, gates, labels, rects };
-}
+    },
+};
 
-LogicDiag._parse = parse;
+LogicDiag._parse = Parser.parse.bind(Parser);
 
 /* ================================================================
  * Layout
@@ -957,7 +958,7 @@ LogicDiag._toggle = function(el) {
  * Only callable in a browser environment (requires document).
  */
 function renderDiagram(text) {
-    const graph = parse(text);
+    const graph = Parser.parse(text);
     const lo    = layout(graph);
 
     const state = new Map();
