@@ -725,18 +725,30 @@ function renderWires(graph, layout, simState) {
                 const diagX1  = stageCx - 0.35 * COL_SPACING;
                 d = `M${sx},${sy} H${diagX0} L${diagX1},${ty} H${tx}`;
             } else {
-                /* Backward (feedback) wire: horizontal to src+0.25 stage,
-                 * short vertical, diagonal to dst-0.25 stage, short
-                 * vertical, horizontal to pin. */
-                const exitX    = srcPos.x + 0.25 * COL_SPACING;
-                const diagEndX = dstPos.x - 0.25 * COL_SPACING;
-                const topStub  = 15;
-                const botStub  = 15;
-                const dir      = ty <= sy ? -1 : 1;
-                const preY     = sy + dir * topStub;
-                const postY    = ty - dir * botStub;
-                d              = `M${sx},${sy} H${exitX} V${preY}` +
-                    ` L${diagEndX},${postY} V${ty} H${tx}`;
+                const exitX = srcPos.x + 0.25 * COL_SPACING;
+                if (Math.abs(ty - sy) < ROW_SPACING / 2) {
+                    /* Same-row feedback: rectangular bracket. Direction is
+                     * determined by whether the destination pin is above or
+                     * below the gate centre (first vs second input). */
+                    const archHeight = 30;
+                    const dir        = ty > dstPos.y ? 1 : -1;
+                    const archY      = sy + dir * archHeight;
+                    const dstStubX   = dstPos.x - 0.35 * COL_SPACING;
+                    d                = `M${sx},${sy} H${exitX} V${archY}` +
+                        ` H${dstStubX} V${ty} H${tx}`;
+                } else {
+                    /* Backward (feedback) wire: horizontal to src+0.25 stage,
+                     * short vertical, diagonal to dst-0.25 stage, short
+                     * vertical, horizontal to pin. */
+                    const diagEndX = dstPos.x - 0.25 * COL_SPACING;
+                    const topStub  = 15;
+                    const botStub  = 15;
+                    const dir      = ty <= sy ? -1 : 1;
+                    const preY     = sy + dir * topStub;
+                    const postY    = ty - dir * botStub;
+                    d              = `M${sx},${sy} H${exitX} V${preY}` +
+                        ` L${diagEndX},${postY} V${ty} H${tx}`;
+                }
             }
 
             parts.push(`<path d="${d}" fill="none" stroke="${color}"` +
