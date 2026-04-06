@@ -4,6 +4,9 @@ A JavaScript library for rendering and simulating logic gate circuits in the
 browser. Circuits are described with a simple text DSL (Domain-Specific
 Language) and rendered as interactive SVG diagrams with live signal propagation.
 
+This library was originally written for my article [Understanding latches and
+flip-flops](https://8dcc.github.io/hardware/latches-and-flipflops.html).
+
 ## Features
 
 - Text-based DSL for describing circuits (inputs, outputs, gates, wires, etc.).
