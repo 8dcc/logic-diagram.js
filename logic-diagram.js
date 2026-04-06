@@ -33,6 +33,12 @@ const LogicDiag = {
     debug : false,        /* enable debug rendering overlays         */
 };
 
+/* Log 'msg' to the console when debug mode is enabled. */
+function dbg(msg) {
+    if (LogicDiag.debug)
+        console.log('[logic-diagram] ' + msg);
+}
+
 /* ================================================================
  * Parser
  * ================================================================ */
@@ -475,8 +481,10 @@ const Simulator = {
                     break;
                 }
             }
-            if (stable)
+            if (stable) {
+                dbg('Stabilized after ' + (i + 1) + ' passes');
                 return { state : next, stable : true };
+            }
             prev = next;
         }
         return { state : first, stable : false };
@@ -965,9 +973,11 @@ const Registry = {
         ].join('\n');
         entry.svgEl.innerHTML = inner;
 
-        if (!stable)
+        if (!stable) {
+            dbg('Oscillating circuit detected, scheduling redraw');
             entry.timerId =
               setTimeout(() => Registry.redraw(entry), LogicDiag.tickRate);
+        }
     },
 
     /* Toggle the value of an input node and redraw. 'el' is the
@@ -978,8 +988,10 @@ const Registry = {
         const entry  = Registry._diagrams.get(svgEl);
         if (!entry || !nodeId)
             return;
-        const cur = entry.state.get(nodeId) ?? 0;
-        entry.state.set(nodeId, cur === 1 ? 0 : 1);
+        const cur  = entry.state.get(nodeId) ?? 0;
+        const next = cur === 1 ? 0 : 1;
+        dbg('Input "' + nodeId + '" toggled: ' + cur + ' -> ' + next);
+        entry.state.set(nodeId, next);
         Registry.redraw(entry);
     },
 
@@ -1009,9 +1021,11 @@ const Registry = {
         };
         Registry._diagrams.set(svgEl, entry);
 
-        if (!stable)
+        if (!stable) {
+            dbg('Oscillating circuit detected on initial render');
             entry.timerId =
               setTimeout(() => Registry.redraw(entry), LogicDiag.tickRate);
+        }
 
         return svgEl;
     },
