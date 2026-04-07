@@ -81,4 +81,65 @@ test('render: feedback wire present for SR-NAND latch', () => {
     assert.ok(pathCount >= 2, 'latch should have multiple wire paths');
 });
 
+test('pin positions: AND output pin is shorter than NAND', () => {
+    const andOut  = LogicDiag._outPin('and',  100, 50);
+    const nandOut = LogicDiag._outPin('nand', 100, 50);
+    assert.ok(andOut.x < nandOut.x,
+        'AND output x should be less than NAND output x');
+});
+
+test('pin positions: OR output pin is shorter than NOR', () => {
+    const orOut  = LogicDiag._outPin('or',  100, 50);
+    const norOut = LogicDiag._outPin('nor', 100, 50);
+    assert.ok(orOut.x < norOut.x,
+        'OR output x should be less than NOR output x');
+});
+
+test('pin positions: XOR output pin is shorter than XNOR', () => {
+    const xorOut  = LogicDiag._outPin('xor',  100, 50);
+    const xnorOut = LogicDiag._outPin('xnor', 100, 50);
+    assert.ok(xorOut.x < xnorOut.x,
+        'XOR output x should be less than XNOR output x');
+});
+
+test('pin positions: BUF output pin is shorter than NOT', () => {
+    const bufOut = LogicDiag._outPin('buf', 100, 50);
+    const notOut = LogicDiag._outPin('not', 100, 50);
+    assert.ok(bufOut.x < notOut.x,
+        'BUF output x should be less than NOT output x');
+});
+
+test('pin positions: outPin y equals cy for all gate types', () => {
+    const types = ['not', 'buf', 'and', 'or', 'nand', 'nor', 'xor', 'xnor'];
+    for (const t of types) {
+        const p = LogicDiag._outPin(t, 100, 50);
+        assert.strictEqual(p.y, 50, t + ' outPin y should equal cy');
+    }
+});
+
+test('pin positions: inPins x equals cx - halfWidth (gate centered)', () => {
+    const types = ['not', 'buf', 'and', 'or', 'nand', 'nor', 'xor', 'xnor'];
+    for (const t of types) {
+        const out = LogicDiag._outPin(t, 100, 50);
+        const ins = LogicDiag._inPins(t, 100, 50);
+        let expectedInX = 100 - (out.x - 100); /* cx - halfWidth */
+        if (t === 'xor' || t === 'xnor')
+            expectedInX += 5; /* Account for XOR/XNOR arc shift */
+        assert.strictEqual(ins[0].x, expectedInX,
+            t + ' inPin x should be cx - halfWidth');
+    }
+});
+
+test('pin positions: single-input gates return one pin', () => {
+    assert.strictEqual(LogicDiag._inPins('not', 100, 50).length, 1);
+    assert.strictEqual(LogicDiag._inPins('buf', 100, 50).length, 1);
+});
+
+test('pin positions: two-input gates return two pins', () => {
+    const twoInput = ['and', 'or', 'nand', 'nor', 'xor', 'xnor'];
+    for (const t of twoInput)
+        assert.strictEqual(LogicDiag._inPins(t, 100, 50).length, 2,
+            t + ' should have 2 input pins');
+});
+
 done();

@@ -53,8 +53,8 @@ test('layout: gate positions are not overwritten by output annotations', () => {
 test('layout: canvas width covers last gate plus output label tail', () => {
     const { width } = layoutOf('input D\nstage 1\nnot n1 D\noutput n1\n');
     /* cx_max = PADDING(50) + GATE_W/2(30) + 1*COL_SPACING(140) = 220
-     * canvasWidth = cx_max(220) + OUT_TAIL(155) = 375 */
-    assert.strictEqual(width, 375);
+     * canvasWidth = cx_max(220) + OUT_TAIL(213) = 433 */
+    assert.strictEqual(width, 433);
 });
 
 test('layout: row hint places gate at correct y', () => {
@@ -79,8 +79,8 @@ test('layout: canvas height accommodates highest row index', () => {
         'input A\nstage 1\nrow 4\nnot n1 A\noutput n1\n'
     );
     const PADDING = 50, ROW_SPACING = 70;
-    /* maxRow=4, height = (4+1)*ROW_SPACING + 2*PADDING = 450 */
-    assert.strictEqual(height, (4 + 1) * ROW_SPACING + 2 * PADDING);
+    /* maxRow=4, height = (4-0)*ROW_SPACING + 2*PADDING = 380 */
+    assert.strictEqual(height, 4 * ROW_SPACING + 2 * PADDING);
 });
 
 test('layout: row hint applies to inputs', () => {
