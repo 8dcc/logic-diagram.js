@@ -116,6 +116,69 @@
     output nand_L2_D ~Q
   </script>
 
+  <h2>Half adder pair and comparator</h2>
+  <p class="tip">Two half adders compute independent sums; the comparator compares the two sums.</p>
+
+  <script type="text/logicdiag">
+    row 0
+    input A
+    row 1
+    input B
+    row 5
+    input C
+    row 6
+    input D
+
+    # Half adder 1 (top)
+    stage 1
+    row 0
+    xor sum1   A B
+    row 1
+    and carry1 A B
+    output carry1 "Carry 1"
+
+    rect 0.4 -0.5 1.9 1.5
+    label "Half adder 1" 1.15 -0.6
+
+    # Half adder 2 (bottom)
+    row 5
+    xor sum2   C D
+    row 6
+    and carry2 C D
+    output carry2 "Carry 2"
+
+    rect 0.4 4.5 1.9 6.5
+    label "Half adder 2" 1.15 4.4
+
+    wire wire_s1  sum1    2.5 2
+    wire wire_s2  sum2    2.5 4
+
+    wire wire_s1b wire_s1 3 2.5
+    wire wire_s2b wire_s2 3 3.5
+
+    # Comparator
+    stage 3
+    row 2
+    not not_s1 wire_s1
+    row 4
+    not not_s2 wire_s2
+
+    stage 4
+    row 2
+    and  gt not_s2 wire_s1b
+    row 3
+    xnor eq wire_s1b wire_s2b
+    row 4
+    and  lt wire_s2b not_s1
+
+    rect 2.4 1.5 5 4.5
+    label "1-bit comparator" 3.7 1.4
+
+    output gt     "S1 > S2"
+    output eq     "S1 = S2"
+    output lt     "S1 < S2"
+  </script>
+
   <h2>Oscillator (NOT feedback loop)</h2>
   <p class="tip">This circuit oscillates — the wire color toggles at 1 tick/second.</p>
 
